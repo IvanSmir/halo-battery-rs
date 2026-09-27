@@ -3,6 +3,7 @@
 //! here and registering it in [`all`].
 
 pub mod gamepad;
+pub mod last_seen;
 pub mod logitech;
 
 use crate::device::DeviceStatus;
