@@ -45,7 +45,7 @@ pub fn request(idx: u8, feat: u8, func: u8, params: &[u8]) -> [u8; LONG_LEN] {
     req
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Reply {
     /// The params of the answer, zero padded so fixed offsets can be indexed.
     Ok(Vec<u8>),

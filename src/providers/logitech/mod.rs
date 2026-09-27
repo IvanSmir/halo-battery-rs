@@ -3,10 +3,14 @@
 //!
 //! Every request is a read: nothing changes any setting on the device.
 //! - [`protocol`]: message layout and payload decoding (pure)
-//! - [`channel`]: request/response I/O over hidapi
+//! - [`transport`]: the request/response contract and multi-request reads
+//! - [`channel`]: the transport over hidapi
+//! - [`slot`]: reads one receiver slot, one request once it is known
 
 pub mod channel;
 pub mod protocol;
+pub mod slot;
+pub mod transport;
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::CString;
@@ -14,8 +18,9 @@ use std::time::{Duration, Instant};
 
 use hidapi::HidApi;
 
-use self::channel::{Answer, Channel, Identity, TIMEOUT};
-use self::protocol::{BATTERY_FEATURES, Reply};
+use self::channel::Channel;
+use self::slot::{SlotCache, SlotRead};
+use self::transport::{TIMEOUT, Transport};
 use super::last_seen::LastSeen;
 use super::{Provider, hexdump};
 use crate::device::DeviceStatus;
@@ -74,8 +79,8 @@ fn discover(api: &mut HidApi) -> HashMap<u16, Endpoint> {
 pub struct LogitechProvider {
     api: Option<HidApi>,
     diag: Vec<String>,
-    /// (pid, idx) -> identity, read once per slot.
-    ids: HashMap<(u16, u8), Identity>,
+    /// What each (pid, idx) slot is known to hold.
+    slots: HashMap<(u16, u8), SlotCache>,
     /// Paired slots that stopped answering.
     asleep: HashSet<(u16, u8)>,
     last_seen: LastSeen,
@@ -92,58 +97,53 @@ impl LogitechProvider {
         Self {
             api: HidApi::new().ok(),
             diag: Vec::new(),
-            ids: HashMap::new(),
+            slots: HashMap::new(),
             asleep: HashSet::new(),
             last_seen: LastSeen::new(ASLEEP_KEEP),
         }
     }
 
-    /// Whether a device answers in `slot`; keeps track of slots gone silent.
-    fn ping(&mut self, ch: &Channel, slot: (u16, u8)) -> bool {
+    fn read_slot(&mut self, t: &impl Transport, pid: u16, idx: u8) -> Option<DeviceStatus> {
+        let key = (pid, idx);
         // A paired device that is asleep does not answer at all, which would cost
-        // the full ping timeout on every poll. Once a slot has gone silent, ping it
-        // with the short timeout until it answers again.
-        let timeout = if self.asleep.contains(&slot) { TIMEOUT } else { PING_TIMEOUT };
-        match ch.request(slot.1, protocol::ROOT_INDEX, protocol::FN_ROOT_PING, &[], timeout) {
-            Answer::Reply(Reply::Ok(_)) => {
-                self.asleep.remove(&slot);
-                true
-            }
-            // empty slot
-            Answer::Reply(Reply::Error) => {
-                self.asleep.remove(&slot);
-                false
-            }
-            Answer::Timeout => {
-                self.asleep.insert(slot);
-                let name = self.ids.get(&slot).map_or("paired device", |i| i.name.as_str());
-                self.diag.push(format!("  idx={} '{name}': no answer (asleep or off)", slot.1));
-                false
-            }
+        // the full ping timeout on every poll. Once a slot has gone silent, use
+        // the short timeout until it answers again.
+        let timeout = if self.asleep.contains(&key) { TIMEOUT } else { PING_TIMEOUT };
+        let mut cache = self.slots.remove(&key);
+        let read = slot::read(t, idx, &mut cache, timeout);
+        let identity = cache.as_ref().map(|c| c.identity.clone());
+        if let Some(c) = cache {
+            self.slots.insert(key, c);
         }
-    }
+        let name = match &identity {
+            Some(i) if !i.name.is_empty() => i.name.clone(),
+            _ => "Logitech device".to_string(),
+        };
 
-    fn read_slot(&mut self, ch: &Channel, pid: u16, idx: u8) -> Option<DeviceStatus> {
-        let slot = (pid, idx);
-        if !self.ping(ch, slot) {
-            return None;
-        }
-        let id = self.ids.entry(slot).or_insert_with(|| ch.identity(idx)).clone();
-        let name = if id.name.is_empty() { "Logitech device".to_string() } else { id.name };
-        for feature in BATTERY_FEATURES {
-            let fi = ch.feature_index(idx, feature);
-            if fi == 0 {
-                continue;
+        match read {
+            SlotRead::Empty => {
+                self.asleep.remove(&key);
+                None
             }
-            let Some(r) = ch.ask(idx, fi, protocol::battery_function(feature), &[]) else { continue };
-            let (level, charging) = protocol::parse_battery(feature, &r);
-            self.diag.push(format!(
-                "  idx={idx} '{name}' unit={} feature {feature:04x}: {} -> {level:?}%{}",
-                if id.unit.is_empty() { "?" } else { &id.unit },
-                hexdump(&r, 4),
-                if charging { " (charging)" } else { "" }
-            ));
-            if level.is_some() {
+            SlotRead::Asleep => {
+                self.asleep.insert(key);
+                self.diag.push(format!("  idx={idx} '{name}': no answer (asleep or off)"));
+                None
+            }
+            SlotRead::NoBattery => {
+                self.asleep.remove(&key);
+                self.diag.push(format!("  idx={idx} '{name}': no battery feature answered"));
+                None
+            }
+            SlotRead::Battery { level, charging, feature, raw } => {
+                self.asleep.remove(&key);
+                let id = identity?;
+                self.diag.push(format!(
+                    "  idx={idx} '{name}' unit={} feature {feature:04x}: {} -> {level}%{}",
+                    if id.unit.is_empty() { "?" } else { &id.unit },
+                    hexdump(&raw, 4),
+                    if charging { " (charging)" } else { "" }
+                ));
                 // the unit id is stable across receiver and cable and tells identical
                 // devices apart; without one, fall back to the receiver slot
                 let key = if id.unit.is_empty() {
@@ -151,11 +151,9 @@ impl LogitechProvider {
                 } else {
                     format!("logitech:{}", id.unit)
                 };
-                return Some(DeviceStatus { key, name, level, charging, online: true, kind: id.kind });
+                Some(DeviceStatus { key, name, level: Some(level), charging, online: true, kind: id.kind })
             }
         }
-        self.diag.push(format!("  idx={idx} '{name}': no battery feature answered"));
-        None
     }
 }
 
