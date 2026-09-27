@@ -1,6 +1,12 @@
 //! The background thread that reads the batteries.
+//!
+//! It reads once at start, then at the configured interval, and at once when
+//! asked to or when Windows reports a controller being connected or removed.
+//! Windows.Gaming.Input fills its controller list asynchronously, so a
+//! controller that is already on at start usually shows up through that
+//! event rather than in the first read.
 
-use std::sync::mpsc::{self, RecvTimeoutError, Sender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::Duration;
 
@@ -10,10 +16,6 @@ use windows::Gaming::Input::RawGameController;
 use crate::device::DeviceStatus;
 use crate::platform::winrt;
 use crate::providers;
-
-/// Windows.Gaming.Input fills its controller list asynchronously; the first
-/// read waits this long for it.
-const WARM_UP: Duration = Duration::from_millis(1500);
 
 enum Cmd {
     PollNow,
@@ -35,16 +37,20 @@ impl Poller {
             winrt::init();
             let mut providers = providers::all();
             subscribe_controller_changes(events);
-            thread::sleep(WARM_UP);
             let mut interval = interval;
             loop {
                 let devices: Vec<DeviceStatus> = providers.iter_mut().flat_map(|p| p.poll()).collect();
                 if out.send(devices).is_err() {
                     return;
                 }
+                // Requests that came in during the read are served by a single
+                // extra read: the read may have started before what they announce.
+                if take_pending(&rx, &mut interval) {
+                    continue;
+                }
                 match rx.recv_timeout(interval) {
-                    Ok(Cmd::PollNow) | Err(RecvTimeoutError::Timeout) => {}
-                    Ok(Cmd::SetInterval(i)) => interval = i,
+                    Ok(cmd) => apply(cmd, &mut interval),
+                    Err(RecvTimeoutError::Timeout) => {}
                     Err(RecvTimeoutError::Disconnected) => return,
                 }
             }
@@ -61,6 +67,22 @@ impl Poller {
     pub fn set_interval(&self, interval: Duration) {
         let _ = self.tx.send(Cmd::SetInterval(interval));
     }
+}
+
+fn apply(cmd: Cmd, interval: &mut Duration) {
+    if let Cmd::SetInterval(i) = cmd {
+        *interval = i;
+    }
+}
+
+/// Applies every queued command; `true` when there was any.
+fn take_pending(rx: &Receiver<Cmd>, interval: &mut Duration) -> bool {
+    let mut any = false;
+    while let Ok(cmd) = rx.try_recv() {
+        apply(cmd, interval);
+        any = true;
+    }
+    any
 }
 
 /// A controller switched on or off: read at once instead of waiting for the
