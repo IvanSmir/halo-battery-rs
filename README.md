@@ -39,5 +39,55 @@ does not show up.
 cargo build --release
 ```
 
-The binary is `target/release/halo-battery.exe`. `cargo test preview -- --ignored`
-renders every icon variant to `target/icon-preview.png`.
+The binary is `target/release/halo-battery.exe`.
+
+## Development
+
+```
+cargo test                          # integration tests in tests/
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+cargo run --example icon_preview    # every icon variant -> target/icon-preview.png
+```
+
+CI runs the same checks on Windows for every push.
+
+## Architecture
+
+A library crate holds everything; `src/main.rs` only picks between the tray
+app and `--list`. Pure logic is kept apart from I/O so it can be tested
+without hardware.
+
+```
+src/
+  device.rs            data model: DeviceStatus, Kind
+  providers/           hardware -> DeviceStatus
+    mod.rs             Provider trait and the registry of providers
+    last_seen.rs       keeps asleep devices, greyed out, for a while
+    logitech/
+      protocol.rs      HID++ 2.0 messages and decoding (pure)
+      channel.rs       request/response I/O over hidapi
+      mod.rs           receiver discovery and slot tracking
+    gamepad/
+      mapping.rs       names and capacity -> percent (pure)
+      mod.rs           Windows.Gaming.Input reads
+  icon/                IconState -> RGBA pixels (pure)
+    palette.rs         colours and the arc colour rule
+    shapes.rs          drawing primitives
+    pictograms.rs      device silhouettes
+  app/                 the tray application
+    poller.rs          background thread that reads the providers
+    view.rs            DeviceStatus -> icon state and tooltip (pure)
+    alerts.rs          when to warn about a low battery (pure)
+    menu.rs            context menu -> Action values
+    tray.rs            keeps the system tray in sync with the views
+    mod.rs             wiring and the Win32 message loop
+  platform/            thin Windows wrappers: theme, autostart, toast, ...
+  config.rs            settings file, validated on load
+  cli.rs               --list diagnostics
+tests/                 one integration test crate per module
+examples/icon_preview.rs
+```
+
+To support a new device family, add a module under `src/providers/` that
+implements `Provider` and register it in `providers::all()`.
