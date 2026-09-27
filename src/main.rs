@@ -1,4 +1,5 @@
 mod device;
+mod icon;
 mod providers;
 
 use device::Provider;
