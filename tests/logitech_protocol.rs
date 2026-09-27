@@ -1,7 +1,7 @@
 use halo_battery::device::Kind;
 use halo_battery::providers::logitech::protocol::{
-    battery_function, kind_from_type, match_reply, parse_battery, request, unit_id, voltage_to_percent, Reply,
-    F_STATUS, F_UNIFIED, F_VOLTAGE, LONG_LEN, SWID,
+    F_STATUS, F_UNIFIED, F_VOLTAGE, LONG_LEN, Reply, SWID, battery_function, kind_from_type, match_reply,
+    parse_battery, request, unit_id, voltage_to_percent,
 };
 
 mod request_layout {

@@ -1,7 +1,7 @@
 mod common;
 
 use common::{charging, device, offline};
-use halo_battery::app::view::{icon_state, icons, is_animated, tooltip, Look, PLACEHOLDER_KEY};
+use halo_battery::app::view::{Look, PLACEHOLDER_KEY, icon_state, icons, is_animated, tooltip};
 
 const LOOK: Look = Look { low: 20, light_taskbar: false, time: 0.75 };
 

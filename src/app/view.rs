@@ -70,8 +70,5 @@ pub fn icons(devices: &[DeviceStatus], look: Look) -> Vec<IconView> {
             tooltip: "Halo Battery: ningún dispositivo encontrado".into(),
         }];
     }
-    devices
-        .iter()
-        .map(|d| IconView { key: d.key.clone(), state: icon_state(d, look), tooltip: tooltip(d) })
-        .collect()
+    devices.iter().map(|d| IconView { key: d.key.clone(), state: icon_state(d, look), tooltip: tooltip(d) }).collect()
 }

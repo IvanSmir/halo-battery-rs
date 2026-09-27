@@ -1,6 +1,6 @@
 use halo_battery::device::Kind;
-use halo_battery::icon::palette::{arc_color, foreground, AMBER, BLACK, GREEN, RED, WHITE};
-use halo_battery::icon::{breath_level, render, IconState, SIZE};
+use halo_battery::icon::palette::{AMBER, BLACK, GREEN, RED, WHITE, arc_color, foreground};
+use halo_battery::icon::{IconState, SIZE, breath_level, render};
 
 fn state(level: Option<u8>) -> IconState {
     IconState { level, charging: false, online: true, kind: Kind::Mouse, low: 20, light_taskbar: false, pulse: 1.0 }

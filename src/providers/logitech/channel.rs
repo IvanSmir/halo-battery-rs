@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 
 use hidapi::{HidApi, HidDevice, HidResult};
 
-use super::protocol::{self, Reply, F_INFO, F_NAME};
+use super::protocol::{self, F_INFO, F_NAME, Reply};
 use crate::device::Kind;
 
 /// How long a normal request waits for its answer.

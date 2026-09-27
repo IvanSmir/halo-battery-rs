@@ -15,9 +15,9 @@ use std::time::{Duration, Instant};
 use hidapi::HidApi;
 
 use self::channel::{Answer, Channel, Identity, TIMEOUT};
-use self::protocol::{Reply, BATTERY_FEATURES};
+use self::protocol::{BATTERY_FEATURES, Reply};
 use super::last_seen::LastSeen;
-use super::{hexdump, Provider};
+use super::{Provider, hexdump};
 use crate::device::DeviceStatus;
 
 const LOGITECH_VID: u16 = 0x046D;

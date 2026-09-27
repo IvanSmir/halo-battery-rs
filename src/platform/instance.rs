@@ -1,8 +1,8 @@
 //! Keeps a single instance of the app running.
 
-use windows::core::w;
-use windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+use windows::Win32::Foundation::{ERROR_ALREADY_EXISTS, GetLastError};
 use windows::Win32::System::Threading::CreateMutexW;
+use windows::core::w;
 
 /// `false` when another instance is already running.
 pub fn claim_single_instance() -> bool {

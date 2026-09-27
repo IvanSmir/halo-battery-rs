@@ -95,8 +95,7 @@ pub fn voltage_to_percent(mv: u32) -> u8 {
     for w in VOLTAGE_CURVE.windows(2) {
         let ((hi_mv, hi_p), (lo_mv, lo_p)) = (w[0], w[1]);
         if mv >= lo_mv {
-            let p = lo_p as f32
-                + (mv - lo_mv) as f32 * (hi_p - lo_p) as f32 / (hi_mv - lo_mv) as f32;
+            let p = lo_p as f32 + (mv - lo_mv) as f32 * (hi_p - lo_p) as f32 / (hi_mv - lo_mv) as f32;
             return p.round() as u8;
         }
     }
@@ -117,11 +116,7 @@ pub fn parse_battery(feature: u16, p: &[u8]) -> (Option<u8>, bool) {
         // bit 7: external power (Solaar's rule)
         F_VOLTAGE => {
             let mv = (p[0] as u32) << 8 | p[1] as u32;
-            if mv < 2500 {
-                (None, false)
-            } else {
-                (Some(voltage_to_percent(mv)), p[2] & 0x80 != 0)
-            }
+            if mv < 2500 { (None, false) } else { (Some(voltage_to_percent(mv)), p[2] & 0x80 != 0) }
         }
         _ => (None, false),
     }

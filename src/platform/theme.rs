@@ -1,7 +1,7 @@
 //! The taskbar theme, which decides whether icons are drawn white or black.
 
+use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
 use windows::core::w;
-use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
 
 /// Whether the taskbar uses the light theme (icons are then drawn black).
 pub fn taskbar_is_light() -> bool {

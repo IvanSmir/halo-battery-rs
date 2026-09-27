@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 
 use tray_icon::menu::MenuEvent;
 use windows::Win32::UI::WindowsAndMessaging::{
-    DispatchMessageW, MsgWaitForMultipleObjects, PeekMessageW, TranslateMessage, MSG, PM_REMOVE, QS_ALLINPUT, WM_QUIT,
+    DispatchMessageW, MSG, MsgWaitForMultipleObjects, PM_REMOVE, PeekMessageW, QS_ALLINPUT, TranslateMessage, WM_QUIT,
 };
 
 use self::alerts::AlertTracker;
