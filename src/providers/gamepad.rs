@@ -10,7 +10,8 @@
 use windows::Gaming::Input::RawGameController;
 use windows::System::Power::BatteryStatus;
 
-use crate::device::{DeviceStatus, Kind, Provider};
+use super::Provider;
+use crate::device::{DeviceStatus, Kind};
 
 /// Generic names Windows gives most Xbox-protocol controllers; a better one is
 /// derived from the hardware vendor id instead.

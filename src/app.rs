@@ -6,21 +6,19 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use tauri_winrt_notification::Toast;
 use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem, Submenu};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 use windows::Gaming::Input::RawGameController;
-use windows::Win32::System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED};
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, MsgWaitForMultipleObjects, PeekMessageW, TranslateMessage, MSG, PM_REMOVE,
     QS_ALLINPUT, WM_QUIT,
 };
 
 use crate::config::{Config, INTERVALS, THRESHOLDS};
-use crate::device::{DeviceStatus, Kind, Provider};
+use crate::device::{DeviceStatus, Kind};
 use crate::icon::{self, IconState};
-use crate::providers::{gamepad::GamepadProvider, logitech::LogitechProvider};
-use crate::winutil;
+use crate::platform::{autostart, notify, theme, winrt};
+use crate::providers;
 
 /// Frame time of the loop, and of the charging animation.
 const TICK: Duration = Duration::from_millis(100);
@@ -38,23 +36,13 @@ enum Cmd {
     SetInterval(u64),
 }
 
-pub fn all_providers() -> Vec<Box<dyn Provider>> {
-    vec![Box::new(LogitechProvider::new()), Box::new(GamepadProvider::new())]
-}
-
-pub fn init_winrt() {
-    unsafe {
-        let _ = RoInitialize(RO_INIT_MULTITHREADED);
-    }
-}
-
 /// Reads every provider now, then again every `interval` seconds or on request.
 fn spawn_poller(interval: u64, out: Sender<Vec<DeviceStatus>>) -> Sender<Cmd> {
     let (tx, rx) = mpsc::channel::<Cmd>();
     let events_tx = tx.clone();
     thread::spawn(move || {
-        init_winrt();
-        let mut providers = all_providers();
+        winrt::init();
+        let mut providers = providers::all();
         // a controller switched on or off: read at once instead of waiting for the next poll
         let added = events_tx.clone();
         let _ = RawGameController::RawGameControllerAdded(&windows::Foundation::EventHandler::new(
@@ -139,7 +127,7 @@ fn build_menu(cfg: &Config) -> (Menu, MenuIds) {
     for (_, item) in &thresholds {
         let _ = threshold_menu.append(item);
     }
-    let autostart = CheckMenuItem::new("Iniciar con Windows", true, winutil::autostart_enabled(), None);
+    let autostart = CheckMenuItem::new("Iniciar con Windows", true, autostart::is_enabled(), None);
     let exit = MenuItem::new("Salir", true, None);
     let _ = menu.append_items(&[
         &refresh,
@@ -246,10 +234,7 @@ impl App {
             if d.charging || level > low + ALERT_HYSTERESIS {
                 self.alerted.remove(&d.key);
             } else if d.online && level <= low && self.alerted.insert(d.key.clone()) {
-                let _ = Toast::new(Toast::POWERSHELL_APP_ID)
-                    .title("Batería baja")
-                    .text1(&format!("{} está al {level}%", d.name))
-                    .show();
+                notify::toast("Batería baja", &format!("{} está al {level}%", d.name));
             }
         }
     }
@@ -263,8 +248,8 @@ impl App {
         if id == self.ids.refresh {
             let _ = self.poller.send(Cmd::PollNow);
         } else if &id == self.ids.autostart.id() {
-            winutil::set_autostart(self.ids.autostart.is_checked());
-            self.ids.autostart.set_checked(winutil::autostart_enabled());
+            autostart::set_enabled(self.ids.autostart.is_checked());
+            self.ids.autostart.set_checked(autostart::is_enabled());
         } else if let Some(&(secs, _)) = self.ids.intervals.iter().find(|(_, i)| i.id() == &id) {
             self.cfg.interval_secs = secs;
             for (s, item) in &self.ids.intervals {
@@ -314,7 +299,7 @@ pub fn run() {
         devices: Vec::new(),
         entries: HashMap::new(),
         alerted: HashSet::new(),
-        light: winutil::taskbar_is_light(),
+        light: theme::taskbar_is_light(),
         started: Instant::now(),
     };
     app.refresh_icons();
@@ -339,7 +324,7 @@ pub fn run() {
         }
         if theme_checked.elapsed() >= THEME_CHECK {
             theme_checked = Instant::now();
-            let light = winutil::taskbar_is_light();
+            let light = theme::taskbar_is_light();
             if light != app.light {
                 app.light = light;
                 changed = true;

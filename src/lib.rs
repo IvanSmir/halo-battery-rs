@@ -1,0 +1,18 @@
+//! Battery levels of wireless devices in the Windows system tray.
+//!
+//! The crate is split in layers:
+//! - [`device`]: the data model shared by everything else
+//! - [`providers`]: talk to the hardware and produce [`device::DeviceStatus`]
+//! - [`icon`]: draw the tray icon for a status (pure, no I/O)
+//! - [`platform`]: thin wrappers over the Windows APIs the app needs
+//! - [`config`]: user settings on disk
+//! - [`app`]: the tray application that wires it all together
+//! - [`cli`]: the `--list` diagnostics command
+
+pub mod app;
+pub mod cli;
+pub mod config;
+pub mod device;
+pub mod icon;
+pub mod platform;
+pub mod providers;

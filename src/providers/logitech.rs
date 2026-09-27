@@ -23,7 +23,8 @@ use std::time::{Duration, Instant};
 
 use hidapi::{HidApi, HidDevice};
 
-use crate::device::{hexdump, DeviceStatus, Kind, Provider};
+use super::{hexdump, Provider};
+use crate::device::{DeviceStatus, Kind};
 
 const LOGITECH_VID: u16 = 0x046D;
 const SWID: u8 = 0x0A;
