@@ -1,4 +1,5 @@
-//! From Windows' Bluetooth device nodes to one entry per physical device.
+//! From Windows' Bluetooth device nodes to one entry per physical device, and
+//! from that entry and its link state to what the tray shows.
 //! Pure functions, no I/O.
 //!
 //! One device is several nodes: the root node (`BTHENUM\DEV_<MAC>` for
@@ -6,8 +7,8 @@
 //! offers. Every node's instance id carries the device's MAC address, which
 //! is how they are grouped.
 
-use crate::device::Kind;
-use crate::platform::bluetooth::BluetoothDevice;
+use crate::device::{DeviceStatus, Kind};
+use crate::platform::bluetooth::{BluetoothDevice, Link};
 
 /// Service UUIDs (their first 32 bits) of audio profiles: A2DP sink,
 /// hands-free, headset, headset HS. A device offering one is a headset.
@@ -150,4 +151,32 @@ pub fn kind_from_appearance(appearance: u16) -> Option<Kind> {
         0x25 => Some(Kind::Headset),
         _ => None,
     }
+}
+
+/// The name shown for a device: the one Windows gives it, or its address.
+pub fn display_name(g: &Grouped) -> String {
+    if g.name.is_empty() { format!("Bluetooth {}", g.mac) } else { g.name.clone() }
+}
+
+/// What a device shows as, given what WinRT says about its link: nothing
+/// unless it has a level and is connected (Windows keeps the last level of a
+/// device that is off). Its kind comes from the Class of Device, else the LE
+/// Appearance, else a headset when it offers an audio profile, else a mouse.
+pub fn status_of(g: &Grouped, link: Option<Link>) -> Option<DeviceStatus> {
+    let level = g.level?;
+    let link = link.filter(|l| l.connected)?;
+    let kind = link
+        .class_of_device
+        .and_then(kind_from_class)
+        .or_else(|| link.appearance.and_then(kind_from_appearance))
+        .unwrap_or(if g.audio { Kind::Headset } else { Kind::Mouse });
+    Some(DeviceStatus {
+        key: format!("bluetooth:{}", g.mac),
+        name: display_name(g),
+        level: Some(level),
+        // Windows does not say whether a Bluetooth device is charging
+        charging: false,
+        online: true,
+        kind,
+    })
 }

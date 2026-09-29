@@ -1,6 +1,8 @@
-use halo_battery::device::Kind;
-use halo_battery::platform::bluetooth::BluetoothDevice;
-use halo_battery::providers::bluetooth::mapping::{group, is_root, kind_from_appearance, kind_from_class, mac_of};
+use halo_battery::device::{DeviceStatus, Kind};
+use halo_battery::platform::bluetooth::{BluetoothDevice, Link};
+use halo_battery::providers::bluetooth::mapping::{
+    Grouped, display_name, group, is_root, kind_from_appearance, kind_from_class, mac_of, status_of,
+};
 
 // Instance ids as Windows writes them (classic from a real machine, LE in the
 // shape of an Xbox-compatible controller connected over Bluetooth LE).
@@ -100,5 +102,62 @@ mod kinds {
         assert_eq!(kind_from_appearance(0x03C4), Some(Kind::Gamepad));
         assert_eq!(kind_from_appearance(0x0941), Some(Kind::Headset));
         assert_eq!(kind_from_appearance(0x0040), None, "a phone");
+    }
+}
+
+mod what_shows {
+    use super::*;
+
+    fn device(level: Option<u8>, audio: bool) -> Grouped {
+        Grouped { mac: "98B6E9016688".into(), le: true, name: "RK H81".into(), level, audio }
+    }
+
+    fn connected() -> Link {
+        Link { connected: true, class_of_device: None, appearance: None }
+    }
+
+    #[test]
+    fn a_connected_device_with_a_level_shows() {
+        let st: DeviceStatus = status_of(&device(Some(64), false), Some(connected())).unwrap();
+        assert_eq!(st.key, "bluetooth:98B6E9016688");
+        assert_eq!(st.name, "RK H81");
+        assert_eq!(st.level, Some(64));
+        assert!(st.online && !st.charging);
+    }
+
+    #[test]
+    fn a_device_that_is_off_keeps_a_level_in_windows_but_does_not_show() {
+        let off = Link { connected: false, ..connected() };
+        assert_eq!(status_of(&device(Some(64), false), Some(off)), None);
+    }
+
+    #[test]
+    fn an_unknown_link_or_level_does_not_show() {
+        assert_eq!(status_of(&device(Some(64), false), None), None);
+        assert_eq!(status_of(&device(None, false), Some(connected())), None);
+    }
+
+    #[test]
+    fn the_class_of_device_decides_the_kind_first() {
+        let link = Link { class_of_device: Some(0x00_2540), appearance: Some(0x03C2), ..connected() };
+        assert_eq!(status_of(&device(Some(1), true), Some(link)).unwrap().kind, Kind::Keyboard);
+    }
+
+    #[test]
+    fn then_the_le_appearance() {
+        let link = Link { appearance: Some(0x03C4), ..connected() };
+        assert_eq!(status_of(&device(Some(1), false), Some(link)).unwrap().kind, Kind::Gamepad);
+    }
+
+    #[test]
+    fn then_an_audio_profile_means_a_headset() {
+        assert_eq!(status_of(&device(Some(1), true), Some(connected())).unwrap().kind, Kind::Headset);
+        assert_eq!(status_of(&device(Some(1), false), Some(connected())).unwrap().kind, Kind::Mouse);
+    }
+
+    #[test]
+    fn a_nameless_device_is_named_after_its_address() {
+        let nameless = Grouped { name: String::new(), ..device(Some(1), false) };
+        assert_eq!(display_name(&nameless), "Bluetooth 98B6E9016688");
     }
 }
