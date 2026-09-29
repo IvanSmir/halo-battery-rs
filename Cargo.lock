@@ -1409,7 +1409,7 @@ dependencies = [
 
 [[package]]
 name = "halo-battery-rs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "hidapi",
  "serde",
@@ -1423,7 +1423,7 @@ dependencies = [
 
 [[package]]
 name = "halo-settings"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "halo-battery-rs",
  "serde",
