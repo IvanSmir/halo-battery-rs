@@ -133,3 +133,72 @@ mod per_device {
         assert_eq!(cfg.display_name("b", "GameSir controller"), "GameSir controller");
     }
 }
+
+mod device_ring_color {
+    use super::*;
+
+    fn tinted(color: RingColor) -> DeviceSettings {
+        DeviceSettings { ring_color: Some(color), ..DeviceSettings::default() }
+    }
+
+    #[test]
+    fn follows_the_global_colour_by_default() {
+        assert_eq!(DeviceSettings::default().ring_color, None);
+    }
+
+    #[test]
+    fn round_trips() {
+        let dir = TempDir::new().unwrap();
+        let path = path_in(&dir);
+        let mut cfg = Config::default();
+        cfg.devices.insert("a".into(), tinted(RingColor::Rose));
+        cfg.devices.insert("b".into(), tinted(RingColor::Auto));
+        cfg.save_to(&path).unwrap();
+        let loaded = Config::load_from(&path);
+        assert_eq!(loaded, cfg);
+        assert_eq!(loaded.devices["b"].ring_color, Some(RingColor::Auto), "Auto is a choice, not 'unset'");
+    }
+
+    #[test]
+    fn is_not_written_when_unset() {
+        let dir = TempDir::new().unwrap();
+        let path = path_in(&dir);
+        let mut cfg = Config::default();
+        cfg.devices.insert("a".into(), renamed("Mi ratón"));
+        cfg.save_to(&path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert!(json["devices"]["a"].get("ring_color").is_none(), "an unset colour is left out, not written as null");
+    }
+
+    #[test]
+    fn an_old_file_without_the_field_loads() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.json");
+        fs::write(&path, r#"{ "devices": { "a": { "alias": "Mi ratón", "visible": false, "notify": true } } }"#)
+            .unwrap();
+        let d = &Config::load_from(&path).devices["a"];
+        assert_eq!((d.alias.as_str(), d.visible, d.ring_color), ("Mi ratón", false, None));
+    }
+
+    #[test]
+    fn a_null_from_the_settings_window_means_unset() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.json");
+        fs::write(&path, r#"{ "devices": { "a": { "alias": "x", "ring_color": null } } }"#).unwrap();
+        assert_eq!(Config::load_from(&path).devices["a"].ring_color, None);
+    }
+
+    #[test]
+    fn a_device_with_only_a_colour_is_kept() {
+        let mut cfg = Config::default();
+        cfg.devices.insert("a".into(), tinted(RingColor::Blue));
+        assert_eq!(cfg.sanitized().devices["a"].ring_color, Some(RingColor::Blue));
+    }
+
+    #[test]
+    fn untouched_devices_are_still_dropped() {
+        let mut cfg = Config::default();
+        cfg.devices.insert("a".into(), DeviceSettings { ring_color: None, ..DeviceSettings::default() });
+        assert!(cfg.sanitized().devices.is_empty());
+    }
+}

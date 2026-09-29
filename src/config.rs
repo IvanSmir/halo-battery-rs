@@ -87,6 +87,10 @@ pub struct DeviceSettings {
     pub visible: bool,
     /// Notifications for this device.
     pub notify: bool,
+    /// Arc colour of this device; `None` follows [`Appearance::ring_color`],
+    /// and `Some(Auto)` is an explicit choice of the taskbar colour.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ring_color: Option<RingColor>,
 }
 
 impl Default for Config {
@@ -116,7 +120,7 @@ impl Default for Appearance {
 
 impl Default for DeviceSettings {
     fn default() -> Self {
-        Self { alias: String::new(), visible: true, notify: true }
+        Self { alias: String::new(), visible: true, notify: true, ring_color: None }
     }
 }
 

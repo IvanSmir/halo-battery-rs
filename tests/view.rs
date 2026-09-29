@@ -79,6 +79,48 @@ mod icon_states {
     }
 }
 
+mod device_colour {
+    use super::*;
+
+    fn tinted(color: Option<RingColor>) -> Config {
+        with_device(
+            "a",
+            DeviceSettings { ring_color: color, visible: true, alias: "x".into(), ..DeviceSettings::default() },
+        )
+    }
+
+    fn ring_of(cfg: &Config, look: Look) -> Option<[u8; 3]> {
+        icons(&[device("a", Some(84))], cfg, look)[0].state.ring
+    }
+
+    #[test]
+    fn the_device_colour_overrides_the_global_one() {
+        let global = Look { ring: ring_color(RingColor::Blue), ..LOOK };
+        assert_eq!(ring_of(&tinted(Some(RingColor::Rose)), global), ring_color(RingColor::Rose));
+    }
+
+    #[test]
+    fn no_device_colour_follows_the_global_one() {
+        let global = Look { ring: ring_color(RingColor::Blue), ..LOOK };
+        assert_eq!(ring_of(&tinted(None), global), ring_color(RingColor::Blue));
+        assert_eq!(ring_of(&Config::default(), global), ring_color(RingColor::Blue));
+    }
+
+    #[test]
+    fn auto_on_a_device_uses_the_taskbar_colour_even_when_the_global_is_blue() {
+        let global = Look { ring: ring_color(RingColor::Blue), ..LOOK };
+        assert_eq!(ring_of(&tinted(Some(RingColor::Auto)), global), None);
+    }
+
+    #[test]
+    fn only_that_device_changes() {
+        let cfg = tinted(Some(RingColor::Mint));
+        let views = icons(&[device("a", Some(1)), device("b", Some(2))], &cfg, LOOK);
+        assert_eq!(views[0].state.ring, ring_color(RingColor::Mint));
+        assert_eq!(views[1].state.ring, LOOK.ring);
+    }
+}
+
 mod icon_list {
     use super::*;
 

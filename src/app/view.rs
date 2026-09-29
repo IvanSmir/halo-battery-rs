@@ -1,7 +1,7 @@
 //! What the tray shows for the devices: which icons, with which state and
 //! tooltip, following the user's settings. Pure.
 
-use crate::config::Config;
+use crate::config::{Config, DeviceSettings};
 use crate::device::{DeviceStatus, Kind};
 use crate::icon::{self, IconState, palette};
 
@@ -55,6 +55,17 @@ impl Look {
     }
 }
 
+impl Look {
+    /// The look of one device: its own ring colour when it has chosen one
+    /// (`Some(Auto)` included), otherwise this one's.
+    fn for_device(self, settings: &DeviceSettings) -> Self {
+        match settings.ring_color {
+            Some(choice) => Self { ring: palette::ring_color(choice), ..self },
+            None => self,
+        }
+    }
+}
+
 /// The tooltip of a device shown as `name`.
 pub fn tooltip(d: &DeviceStatus, name: &str) -> String {
     match (d.level, d.online, d.charging) {
@@ -92,11 +103,13 @@ pub fn is_animated(d: &DeviceStatus) -> bool {
 pub fn icons(devices: &[DeviceStatus], cfg: &Config, look: Look) -> Vec<IconView> {
     let views: Vec<IconView> = devices
         .iter()
-        .filter(|d| cfg.device(&d.key).visible)
-        .map(|d| IconView {
-            key: d.key.clone(),
-            state: icon_state(d, look),
-            tooltip: tooltip(d, cfg.display_name(&d.key, &d.name)),
+        .filter_map(|d| {
+            let settings = cfg.device(&d.key);
+            settings.visible.then(|| IconView {
+                key: d.key.clone(),
+                state: icon_state(d, look.for_device(&settings)),
+                tooltip: tooltip(d, cfg.display_name(&d.key, &d.name)),
+            })
         })
         .collect();
     if !views.is_empty() {
