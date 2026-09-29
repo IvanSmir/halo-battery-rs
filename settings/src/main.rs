@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use halo_battery::config::Config;
 use halo_battery::device::DeviceStatus;
+use halo_battery::diagnose;
 use halo_battery::platform::{autostart, instance, launch};
 use halo_battery::snapshot::Snapshot;
 use halo_battery::storage::FileWatch;
@@ -28,6 +29,7 @@ struct Initial {
     devices: Vec<DeviceStatus>,
     autostart: bool,
     tray_running: bool,
+    version: &'static str,
 }
 
 fn tray_exe() -> Option<PathBuf> {
@@ -45,6 +47,7 @@ fn load() -> Initial {
         devices: devices(),
         autostart: tray_exe().is_some_and(|exe| autostart::is_enabled(&exe)),
         tray_running: instance::tray_running(),
+        version: env!("CARGO_PKG_VERSION"),
     }
 }
 
@@ -68,6 +71,30 @@ fn set_autostart(enabled: bool) -> bool {
 #[tauri::command]
 fn start_tray() -> Result<(), String> {
     launch::start_tray().map_err(|e| e.to_string())
+}
+
+/// Writes the diagnostics report to the Desktop and shows it in Explorer.
+/// The tray executable collects it (`--diagnose`), so this window still never
+/// talks to the hardware. Returns the file name.
+#[tauri::command]
+async fn export_diagnostics() -> Result<String, String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    let exe = tray_exe().ok_or("no se encuentra halo-battery.exe")?;
+    let path = diagnose::default_path();
+    let out = path.clone();
+    let status = tauri::async_runtime::spawn_blocking(move || {
+        std::process::Command::new(exe).arg("--diagnose").arg(&out).creation_flags(CREATE_NO_WINDOW).status()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    if !status.success() || !path.exists() {
+        return Err("no se pudo generar el informe".into());
+    }
+    let _ = std::process::Command::new("explorer").arg(format!("/select,{}", path.display())).spawn();
+    Ok(path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
 }
 
 /// Pushes "devices" when the tray publishes new readings and "tray" when it
@@ -103,7 +130,7 @@ fn main() {
             spawn_watcher(app.handle().clone());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![load, save_config, set_autostart, start_tray])
+        .invoke_handler(tauri::generate_handler![load, save_config, set_autostart, start_tray, export_diagnostics])
         .run(tauri::generate_context!())
         .expect("failed to start the settings window");
 }

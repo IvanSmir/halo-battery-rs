@@ -29,12 +29,29 @@ from the right-click menu) to open the settings window:
 - **Notificaciones** - master switch, low-battery threshold (once per
   discharge), full-charge alert and sound
 - **Apariencia** - ring colour, charging animation, pictogram
-- **General** - poll interval and start with Windows
+- **General** - poll interval, start with Windows and **Exportar diagnóstico**
 
 The right-click menu also has **Actualizar ahora** and **Salir**.
 
 `halo-battery.exe --list` prints what each provider sees, useful when a device
 does not show up.
+
+### Supporting a new device
+
+Ask for the exact model, how it connects (dongle, Bluetooth or cable, since
+each mode is a different protocol), whether its official software shows the
+battery, and a diagnostics report: **General → Exportar diagnóstico** in the
+settings window, or `halo-battery.exe --diagnose [file]`. The report is written
+to the Desktop and lists what the providers recognise, every HID interface with
+its report descriptor (flagging standard battery usages such as Generic Device
+Controls / Battery Strength), and the Bluetooth devices with the battery
+Windows knows. It only reads: nothing is ever sent to a device.
+
+Then look the VID/PID up in projects that document protocols (Solaar,
+HeadsetControl, OpenRGB, libratbag). If none does and the official software
+shows the battery, capture its traffic with USBPcap + Wireshark while the level
+updates. Never send commands to an unknown device by trial and error: vendor
+channels mix queries with settings.
 
 ### How the two programs talk
 

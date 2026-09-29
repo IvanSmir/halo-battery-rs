@@ -124,9 +124,19 @@
                 <div><div class="title">Iniciar con Windows</div><div class="desc">Abre Halo Battery al iniciar sesión.</div></div>
                 <input type="checkbox" class="switch" id="autostart" />
               </label>
+              <div class="glass card setting">
+                <div>
+                  <div class="title">Diagnóstico</div>
+                  <div class="desc" id="diagnose-status">
+                    ¿Un dispositivo no aparece? Genera un informe y envíalo para darle soporte.
+                    Solo lee información; incluye los nombres de tus dispositivos.
+                  </div>
+                </div>
+                <button class="primary" id="diagnose">Exportar diagnóstico</button>
+              </div>
               <div class="glass card">
                 <div class="title">Halo Battery</div>
-                <div class="desc">Versión 0.1.0 · Rust · Tauri 2</div>
+                <div class="desc">Versión <span id="app-version"></span> · Rust · Tauri 2</div>
               </div>
             </div>
           </section>

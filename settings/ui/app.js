@@ -338,12 +338,31 @@ function showTray(running) {
 
 $("#start-tray").addEventListener("click", () => invoke("start_tray").catch(console.error));
 
+// ---------------------------------------------------------------- diagnostics
+
+$("#diagnose").addEventListener("click", async () => {
+  const button = $("#diagnose");
+  const status = $("#diagnose-status");
+  button.disabled = true;
+  button.textContent = "Generando…";
+  try {
+    const file = await invoke("export_diagnostics");
+    status.textContent = `Guardado en el Escritorio como ${file}. Envía ese archivo.`;
+  } catch (e) {
+    status.textContent = `No se pudo generar el informe: ${e}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = "Exportar diagnóstico";
+  }
+});
+
 // ---------------------------------------------------------------- start
 
 async function start() {
   const initial = await invoke("load");
   state.config = initial.config;
   const cfg = state.config;
+  $("#app-version").textContent = initial.version;
 
   applyRingColor();
   slider.value = cfg.low_threshold;
