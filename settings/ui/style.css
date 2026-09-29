@@ -887,6 +887,19 @@ input[type="range"]::-webkit-slider-thumb:hover {
   cursor: progress;
 }
 
+/* an error the user should know about, above every page, in red */
+.banner.notice {
+  border-color: rgba(255, 59, 78, 0.4);
+  background: rgba(255, 59, 78, 0.1);
+}
+
+.banner.notice button {
+  padding: 6px 14px;
+  border-radius: 10px;
+  color: var(--text);
+  border: 1px solid var(--line-strong);
+}
+
 /* the update banner sits above every page, in the accent colour */
 .banner.update {
   border-color: rgba(47, 140, 255, 0.4);

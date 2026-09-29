@@ -32,6 +32,28 @@ const ICON = {
 const icon = (name, cls = "") => `<svg viewBox="0 0 24 24" class="${cls}">${ICON[name]}</svg>`;
 const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
+// ---------------------------------------------------------------- errors
+
+// what each kind of error from the backend means to the user
+const ERROR_TEXT = {
+  unavailable: "Falta algo que hace falta",
+  io: "No se pudo leer o escribir un archivo",
+  failed: "La operación no se completó",
+};
+
+/** Shows `title` and, under it, what the backend said. Accepts the
+ *  `{ kind, message }` the commands fail with, an Error or a plain string. */
+function report(title, error) {
+  console.error(title, error);
+  const detail = error?.message ?? String(error ?? "");
+  const kind = ERROR_TEXT[error?.kind];
+  $("#notice-title").textContent = title;
+  $("#notice-detail").textContent = [kind, detail].filter(Boolean).join(": ");
+  $("#notice").hidden = false;
+}
+
+$("#notice-close").addEventListener("click", () => ($("#notice").hidden = true));
+
 /** The app state: the saved config and the tray's last reading. */
 const state = { config: null, devices: [] };
 
@@ -56,7 +78,7 @@ function save(delay = 0) {
     try {
       await invoke("save_config", { config: state.config });
     } catch (e) {
-      console.error("could not save the settings", e);
+      report("No se pudieron guardar los ajustes", e);
     }
   }, delay);
 }
@@ -336,7 +358,9 @@ function showTray(running) {
   $("#tray-banner").hidden = running;
 }
 
-$("#start-tray").addEventListener("click", () => invoke("start_tray").catch(console.error));
+$("#start-tray").addEventListener("click", () =>
+  invoke("start_tray").catch((e) => report("No se pudo iniciar la bandeja", e)),
+);
 
 // ---------------------------------------------------------------- updates
 
@@ -350,7 +374,9 @@ function showUpdate(release) {
   if (visible) $("#update-text").textContent = `Halo Battery ${release.version} ya se puede descargar.`;
 }
 
-$("#open-update").addEventListener("click", () => invoke("open_update").catch(console.error));
+$("#open-update").addEventListener("click", () =>
+  invoke("open_update").catch((e) => report("No se pudo abrir la página de descarga", e)),
+);
 
 // ---------------------------------------------------------------- diagnostics
 
@@ -363,7 +389,8 @@ $("#diagnose").addEventListener("click", async () => {
     const file = await invoke("export_diagnostics");
     status.textContent = `Guardado en el Escritorio como ${file}. Envía ese archivo.`;
   } catch (e) {
-    status.textContent = `No se pudo generar el informe: ${e}`;
+    status.textContent = "";
+    report("No se pudo generar el informe", e);
   } finally {
     button.disabled = false;
     button.textContent = "Exportar diagnóstico";
@@ -377,6 +404,10 @@ async function start() {
   state.config = initial.config;
   const cfg = state.config;
   $("#app-version").textContent = initial.version;
+
+  if (initial.warning) {
+    report("No se pudieron leer los ajustes guardados; se usan los valores por defecto", { message: initial.warning });
+  }
 
   applyRingColor();
   slider.value = cfg.low_threshold;
@@ -398,7 +429,13 @@ async function start() {
   const autostart = $("#autostart");
   autostart.checked = initial.autostart;
   autostart.addEventListener("change", async () => {
-    autostart.checked = await invoke("set_autostart", { enabled: autostart.checked });
+    try {
+      autostart.checked = await invoke("set_autostart", { enabled: autostart.checked });
+    } catch (e) {
+      // the entry did not change, so the switch goes back to what it was
+      autostart.checked = !autostart.checked;
+      report("No se pudo cambiar el inicio con Windows", e);
+    }
   });
 
   renderPreviews();
@@ -413,4 +450,4 @@ async function start() {
   tauri.event.listen("update", (e) => showUpdate(e.payload));
 }
 
-start().catch((e) => console.error("could not load the settings", e));
+start().catch((e) => report("No se pudieron cargar los ajustes", e));
