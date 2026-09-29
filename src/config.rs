@@ -144,6 +144,18 @@ impl Config {
         storage::read_json::<Self>(path).unwrap_or_default().sanitized()
     }
 
+    /// Like [`Config::load_from`], but says when an existing file cannot be
+    /// used. A missing file is not a problem: it just means nothing is set yet.
+    pub fn try_load_from(path: &Path) -> io::Result<Self> {
+        let text = match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Self::default()),
+            Err(e) => return Err(e),
+        };
+        let config: Self = serde_json::from_str(&text).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        Ok(config.sanitized())
+    }
+
     /// Saves to the default path.
     pub fn save(&self) -> io::Result<()> {
         match Self::default_path() {

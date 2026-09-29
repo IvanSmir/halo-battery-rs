@@ -33,6 +33,29 @@ mod file {
     }
 
     #[test]
+    fn checking_a_missing_file_is_not_an_error() {
+        let dir = TempDir::new().unwrap();
+        assert_eq!(Config::try_load_from(&path_in(&dir)).unwrap(), Config::default());
+    }
+
+    #[test]
+    fn checking_a_corrupt_file_reports_it() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.json");
+        fs::write(&path, "{ not json").unwrap();
+        let err = Config::try_load_from(&path).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
+
+    #[test]
+    fn checking_a_valid_file_sanitizes_it() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("config.json");
+        fs::write(&path, r#"{ "interval_secs": 1 }"#).unwrap();
+        assert_eq!(Config::try_load_from(&path).unwrap().interval_secs, 5);
+    }
+
+    #[test]
     fn a_corrupt_file_gives_the_defaults() {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("config.json");
