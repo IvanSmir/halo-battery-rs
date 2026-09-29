@@ -22,7 +22,7 @@ pub fn diagnose(path: Option<PathBuf>) {
     match std::fs::write(&path, report) {
         Ok(()) => println!("{}", path.display()),
         Err(e) => {
-            eprintln!("no se pudo escribir {}: {e}", path.display());
+            eprintln!("could not write {}: {e}", path.display());
             std::process::exit(1);
         }
     }

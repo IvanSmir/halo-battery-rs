@@ -110,6 +110,11 @@ cargo run --example icon_preview                # every icon variant -> target/i
 
 CI runs the same checks on Windows for every push.
 
+Language: what users see in Windows (tray tooltips, notifications, the
+settings window, file names left on their Desktop) is in Spanish; technical
+output (`--list`, the diagnostics report, code, comments, commits and this
+README) is in English.
+
 ## Architecture
 
 A cargo workspace: the root crate is the library plus the tray binary

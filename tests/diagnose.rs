@@ -101,16 +101,16 @@ mod report {
     }
 
     #[test]
-    fn says_it_only_reads() {
-        assert!(report(vec![], vec![]).contains("solo lee información"));
+    fn says_it_only_read() {
+        assert!(report(vec![], vec![]).contains("reading only"));
     }
 
     #[test]
     fn devices_declaring_a_battery_are_listed_first() {
         let text = report(vec![interface(0x0049, Ok(BATTERY_STRENGTH.to_vec()))], vec![]);
-        let hints = text.split("== Dispositivos HID ==").next().unwrap();
+        let hints = text.split("== HID devices ==").next().unwrap();
         assert!(hints.contains("258A:0049 RK H81"));
-        assert!(text.contains(">> declara batería"));
+        assert!(text.contains(">> declares a battery"));
     }
 
     #[test]
@@ -123,8 +123,8 @@ mod report {
 
     #[test]
     fn an_unreadable_descriptor_says_why() {
-        let text = report(vec![interface(0x0049, Err("acceso denegado".into()))], vec![]);
-        assert!(text.contains("descriptor: no disponible (acceso denegado)"));
+        let text = report(vec![interface(0x0049, Err("access denied".into()))], vec![]);
+        assert!(text.contains("descriptor: unavailable (access denied)"));
     }
 
     #[test]
@@ -145,8 +145,8 @@ mod report {
                 bt("Teclado", r"BTHLE\SOMETHING\8&3", Some(80)),
             ],
         );
-        assert!(text.contains("Auriculares · sin batería conocida"));
+        assert!(text.contains("Auriculares · no known battery"));
         assert!(!text.contains("A2DP"), "profiles are left out");
-        assert!(text.contains("Teclado · batería 80%"));
+        assert!(text.contains("Teclado · battery 80%"));
     }
 }

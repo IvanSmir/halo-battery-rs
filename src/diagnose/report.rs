@@ -87,54 +87,53 @@ impl Report {
 impl Display for Report {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
-        writeln!(s, "Halo Battery - informe de diagnóstico")?;
-        writeln!(s, "Versión {} · {} · {}", self.app_version, self.windows, self.date)?;
+        writeln!(s, "Halo Battery - diagnostics report")?;
+        writeln!(s, "Version {} · {} · {}", self.app_version, self.windows, self.date)?;
         writeln!(s)?;
-        writeln!(s, "Este informe solo lee información: no se envió nada a ningún dispositivo.")?;
-        writeln!(s, "Incluye los nombres de tus dispositivos y sus identificadores (VID/PID),")?;
-        writeln!(s, "pero no números de serie.")?;
+        writeln!(s, "Collected by reading only: nothing was sent to any device.")?;
+        writeln!(s, "It includes device names and ids (VID/PID), not serial numbers.")?;
 
-        writeln!(s, "\n== Lo que Halo Battery reconoce ==")?;
+        writeln!(s, "\n== What Halo Battery recognises ==")?;
         if self.providers.is_empty() {
-            writeln!(s, "  (nada)")?;
+            writeln!(s, "  (nothing)")?;
         }
         for line in &self.providers {
             writeln!(s, "  {line}")?;
         }
 
         let hints = self.battery_hints();
-        writeln!(s, "\n== Dispositivos HID que declaran batería ==")?;
+        writeln!(s, "\n== HID devices declaring a battery ==")?;
         if hints.is_empty() {
-            writeln!(s, "  Ninguno declara un uso de batería estándar en su descriptor.")?;
+            writeln!(s, "  None declares a standard battery usage in its descriptor.")?;
         }
         for h in hints {
             writeln!(
                 s,
-                "  {:04X}:{:04X} {} {} (interfaz {}, página 0x{:04X})",
+                "  {:04X}:{:04X} {} {} (interface {}, page 0x{:04X})",
                 h.vendor_id, h.product_id, h.manufacturer, h.product, h.interface, h.usage_page
             )?;
         }
 
-        writeln!(s, "\n== Dispositivos HID ==")?;
+        writeln!(s, "\n== HID devices ==")?;
         for ((vid, pid), interfaces) in self.devices() {
             let first = interfaces[0];
             writeln!(s, "\n[{vid:04X}:{pid:04X}] {} {}", first.manufacturer, first.product)?;
             for h in interfaces {
                 writeln!(
                     s,
-                    "  - bus {} · interfaz {} · página 0x{:04X} · uso 0x{:04X}",
+                    "  - bus {} · interface {} · page 0x{:04X} · usage 0x{:04X}",
                     h.bus, h.interface, h.usage_page, h.usage
                 )?;
                 match &h.descriptor {
                     Ok(d) => {
                         let summary = descriptor::summarize(d);
-                        writeln!(s, "    páginas: {}", pages(&summary))?;
+                        writeln!(s, "    pages: {}", pages(&summary))?;
                         if summary.mentions_battery() {
-                            writeln!(s, "    >> declara batería")?;
+                            writeln!(s, "    >> declares a battery")?;
                         }
                         writeln!(s, "    descriptor ({} bytes):\n      {}", d.len(), hex(d))?;
                     }
-                    Err(e) => writeln!(s, "    descriptor: no disponible ({e})")?,
+                    Err(e) => writeln!(s, "    descriptor: unavailable ({e})")?,
                 }
             }
         }
@@ -142,11 +141,11 @@ impl Display for Report {
         writeln!(s, "\n== Bluetooth ==")?;
         let bt: Vec<&BluetoothDevice> = self.bluetooth.iter().filter(|d| is_device_node(d)).collect();
         if bt.is_empty() {
-            writeln!(s, "  Ningún dispositivo Bluetooth emparejado.")?;
+            writeln!(s, "  No paired Bluetooth device.")?;
         }
         for d in bt {
-            let battery = d.battery.map_or("sin batería conocida".to_string(), |b| format!("batería {b}%"));
-            let name = if d.name.is_empty() { "(sin nombre)" } else { &d.name };
+            let battery = d.battery.map_or("no known battery".to_string(), |b| format!("battery {b}%"));
+            let name = if d.name.is_empty() { "(no name)" } else { &d.name };
             writeln!(s, "  {name} · {battery}\n    {}", d.instance_id)?;
         }
         f.write_str(&s)

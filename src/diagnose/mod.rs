@@ -45,8 +45,8 @@ pub fn provider_lines() -> Vec<String> {
         for d in devices {
             let level = d.level.map_or("?".to_string(), |l| format!("{l}%"));
             let state = match (d.online, d.charging) {
-                (false, _) => ", dormido",
-                (true, true) => ", cargando",
+                (false, _) => ", asleep",
+                (true, true) => ", charging",
                 _ => "",
             };
             lines.push(format!("  => {}: {level}{state}", d.name));
