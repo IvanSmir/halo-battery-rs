@@ -21,41 +21,59 @@ Every query is a read; no device setting is ever changed.
 
 ## Usage
 
-Run `halo-battery.exe`. Right-click any of its icons for:
+Run `halo-battery.exe`. Click any of its icons (or pick **Configuración…**
+from the right-click menu) to open the settings window:
 
-- **Actualizar ahora** - read all batteries now
-- **Intervalo de lectura** - 15 s to 5 min (default 1 min)
-- **Aviso de batería baja** - 10 % to 30 % (default 20 %); a notification is shown once per discharge
-- **Iniciar con Windows** - adds or removes the entry under `HKCU\...\CurrentVersion\Run`
+- **Dispositivos** - every detected device with its live level; rename it,
+  hide it from the tray or silence its notifications
+- **Notificaciones** - master switch, low-battery threshold (once per
+  discharge), full-charge alert and sound
+- **Apariencia** - ring colour, charging animation, pictogram
+- **General** - poll interval and start with Windows
 
-Settings live in `%APPDATA%\halo-battery-rs\config.json`.
+The right-click menu also has **Actualizar ahora** and **Salir**.
 
 `halo-battery.exe --list` prints what each provider sees, useful when a device
 does not show up.
 
+### How the two programs talk
+
+The tray (`halo-battery.exe`, ~3 MB of memory) and the settings window
+(`halo-settings.exe`, Tauri, only running while open) share two files in
+`%APPDATA%\halo-battery-rs`:
+
+- `devices.json` - written by the tray after every reading; the window shows it
+  and never talks to the hardware itself
+- `config.json` - written by the window on every change; the tray applies it
+  as soon as it changes
+
+Both are written atomically (temporary file + rename).
+
 ## Build
 
 ```
-cargo build --release
+cargo build --release                      # the tray
+cargo build --release -p halo-settings     # the settings window (Tauri)
 ```
 
-The binary is `target/release/halo-battery.exe`.
+Both binaries land in `target/release/` and must stay side by side.
 
 ## Development
 
 ```
-cargo test                          # integration tests in tests/
-cargo clippy --all-targets -- -D warnings
-cargo fmt --check
-cargo run --example icon_preview    # every icon variant -> target/icon-preview.png
+cargo test                                      # integration tests in tests/
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+cargo run --example icon_preview                # every icon variant -> target/icon-preview.png
 ```
 
 CI runs the same checks on Windows for every push.
 
 ## Architecture
 
-A library crate holds everything; `src/main.rs` only picks between the tray
-app and `--list`. Pure logic is kept apart from I/O so it can be tested
+A cargo workspace: the root crate is the library plus the tray binary
+(`src/main.rs` only picks between the tray app and `--list`); `settings/` is
+the Tauri window. Pure logic is kept apart from I/O so it can be tested
 without hardware.
 
 ```
@@ -66,8 +84,10 @@ src/
     last_seen.rs       keeps asleep devices, greyed out, for a while
     logitech/
       protocol.rs      HID++ 2.0 messages and decoding (pure)
-      channel.rs       request/response I/O over hidapi
-      mod.rs           receiver discovery and slot tracking
+      transport.rs     request/response contract and multi-request reads
+      channel.rs       the transport over hidapi
+      slot.rs          reads one receiver slot, one request once known
+      mod.rs           receiver discovery
     gamepad/
       mapping.rs       names and capacity -> percent (pure)
       mod.rs           Windows.Gaming.Input reads
@@ -77,14 +97,19 @@ src/
     pictograms.rs      device silhouettes
   app/                 the tray application
     poller.rs          background thread that reads the providers
-    view.rs            DeviceStatus -> icon state and tooltip (pure)
-    alerts.rs          when to warn about a low battery (pure)
+    view.rs            devices + settings -> icon states and tooltips (pure)
+    alerts.rs          when to notify (pure)
     menu.rs            context menu -> Action values
     tray.rs            keeps the system tray in sync with the views
-    mod.rs             wiring and the Win32 message loop
-  platform/            thin Windows wrappers: theme, autostart, toast, ...
+    mod.rs             wiring, shared files and the Win32 message loop
+  platform/            thin Windows wrappers: theme, autostart, toast, launch, ...
   config.rs            settings file, validated on load
+  snapshot.rs          the last readings, published for the window
+  storage.rs           data directory, atomic JSON writes, file watching
   cli.rs               --list diagnostics
+settings/              the settings window
+  src/main.rs          commands over the shared files, pushes live updates
+  ui/                  HTML, CSS and JS (no bundler)
 tests/                 one integration test crate per module
 examples/icon_preview.rs
 ```
