@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/IvanSmir/halo-battery-rs/compare/v0.1.0...v0.2.0) (2026-09-29)
+
+
+### Features
+
+* announce when an update is available ([e0ff810](https://github.com/IvanSmir/halo-battery-rs/commit/e0ff81001bca682c876271f4e8174f2678af29bc))
+* export a diagnostics report to support new devices ([b9f8b9e](https://github.com/IvanSmir/halo-battery-rs/commit/b9f8b9e3d729e16c55c3517a430333544327a69e))
+* show the battery of Bluetooth devices Windows knows ([e4fab8a](https://github.com/IvanSmir/halo-battery-rs/commit/e4fab8aded501722d070921f8915f12fe787128a))
+
+
+### Bug Fixes
+
+* write the diagnostics report in English like the rest of --list ([2602efb](https://github.com/IvanSmir/halo-battery-rs/commit/2602efbbc53e55e10d93fe71545498c1fe81f7a7))
+
 ## 0.1.0 (2026-09-29)
 
 First release.
