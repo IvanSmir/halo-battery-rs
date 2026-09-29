@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Halo Battery</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- soft light behind the glass, so the blur has something to catch -->
+    <div class="glow glow-a"></div>
+    <div class="glow glow-b"></div>
+    <div class="glow glow-c"></div>
+
+    <div class="drag" data-tauri-drag-region></div>
+    <div class="window-controls">
+      <button id="win-min" aria-label="Minimizar"><svg viewBox="0 0 10 10"><path d="M1 5h8" /></svg></button>
+      <button id="win-max" aria-label="Maximizar"><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" rx="1" /></svg></button>
+      <button id="win-close" class="close" aria-label="Cerrar"><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" /></svg></button>
+    </div>
+
+    <div class="shell">
+      <nav class="sidebar">
+        <div class="brand" data-tauri-drag-region>
+          <span class="brand-ring"></span>
+          Halo Battery
+        </div>
+        <button class="nav active" data-page="devices">
+          <svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="5" /><path d="M12 3v6" /></svg>
+          Dispositivos
+        </button>
+        <button class="nav" data-page="notifications">
+          <svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 1 1 12 0v6l2 2H4z" /><path d="M10 21h4" /></svg>
+          Notificaciones
+        </button>
+        <button class="nav" data-page="appearance">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 4a8 8 0 0 1 0 16z" class="fill" /></svg>
+          Apariencia
+        </button>
+        <button class="nav" data-page="general">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+          General
+        </button>
+        <div class="spacer"></div>
+        <div class="sidebar-foot" id="device-count">Buscando dispositivos…</div>
+      </nav>
+
+      <main class="panel">
+        <div class="content">
+          <section class="page active" id="page-devices">
+            <h1>Dispositivos</h1>
+            <p class="sub">Detectados automáticamente. Escribe un nombre para renombrarlos.</p>
+            <div class="list" id="device-list">
+              <div class="glass card skeleton"></div>
+              <div class="glass card skeleton"></div>
+            </div>
+          </section>
+
+          <section class="page" id="page-notifications">
+            <h1>Notificaciones</h1>
+            <p class="sub">Cuándo avisarte.</p>
+            <div class="list">
+              <label class="glass card setting">
+                <div><div class="title">Notificaciones</div><div class="desc">Activa o desactiva todos los avisos.</div></div>
+                <input type="checkbox" class="switch" checked />
+              </label>
+              <div class="glass card setting column">
+                <div class="row">
+                  <div><div class="title">Batería baja</div><div class="desc">Avisa una vez por descarga al llegar a este nivel.</div></div>
+                  <div class="value" id="threshold-value">20%</div>
+                </div>
+                <input type="range" id="threshold" min="5" max="50" step="5" value="20" />
+              </div>
+              <label class="glass card setting">
+                <div><div class="title">Carga completa</div><div class="desc">Avisa cuando un dispositivo llega al 100 %.</div></div>
+                <input type="checkbox" class="switch" />
+              </label>
+              <label class="glass card setting">
+                <div><div class="title">Sonido</div><div class="desc">Reproduce el sonido de Windows con cada aviso.</div></div>
+                <input type="checkbox" class="switch" checked />
+              </label>
+            </div>
+          </section>
+
+          <section class="page" id="page-appearance">
+            <h1>Apariencia</h1>
+            <p class="sub">Cómo se ven los iconos de la bandeja.</p>
+            <div class="list">
+              <div class="glass card preview">
+                <div class="previews" id="previews"></div>
+                <div class="desc">Vista previa: normal · aviso · batería baja · cargando</div>
+              </div>
+              <div class="glass card setting">
+                <div><div class="title">Color del anillo</div><div class="desc">«A» sigue el tema de la barra de tareas.</div></div>
+                <div class="swatches" id="swatches"></div>
+              </div>
+              <label class="glass card setting">
+                <div><div class="title">Animación de carga</div><div class="desc">El anillo «respira» mientras carga.</div></div>
+                <input type="checkbox" class="switch" id="animate" checked />
+              </label>
+              <label class="glass card setting">
+                <div><div class="title">Pictograma</div><div class="desc">Muestra el icono del dispositivo dentro del anillo.</div></div>
+                <input type="checkbox" class="switch" checked />
+              </label>
+            </div>
+          </section>
+
+          <section class="page" id="page-general">
+            <h1>General</h1>
+            <p class="sub">Funcionamiento de la aplicación.</p>
+            <div class="list">
+              <div class="glass card setting">
+                <div><div class="title">Intervalo de lectura</div><div class="desc">Cada cuánto se consulta la batería.</div></div>
+                <div class="segmented" id="intervals"></div>
+              </div>
+              <label class="glass card setting">
+                <div><div class="title">Iniciar con Windows</div><div class="desc">Abre Halo Battery al iniciar sesión.</div></div>
+                <input type="checkbox" class="switch" checked />
+              </label>
+              <div class="glass card">
+                <div class="title">Halo Battery</div>
+                <div class="desc">Versión 0.1.0 · Rust · Tauri 2</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <div class="menu glass" id="device-menu" hidden>
+      <button data-action="rename"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z" /></svg>Renombrar</button>
+      <button data-action="hide"><svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 22 12a14 14 0 0 1-2.5 3.4M6.6 6.6A14 14 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6" /></svg>Ocultar de la bandeja</button>
+      <div class="menu-sep"></div>
+      <button data-action="forget" class="danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>Olvidar dispositivo</button>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
