@@ -1,0 +1,49 @@
+name: Release
+
+# Push a tag like v0.1.0 to publish a GitHub release with the installer and a
+# portable zip. Running it by hand builds the same files as a workflow artifact.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the tag matches the app version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $version = (Get-Content settings/tauri.conf.json -Raw | ConvertFrom-Json).version
+          if ("${{ github.ref_name }}" -ne "v$version") {
+            throw "tag ${{ github.ref_name }} does not match version $version in settings/tauri.conf.json"
+          }
+
+      - name: Build
+        shell: pwsh
+        run: ./scripts/release.ps1
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+      - name: Keep the files (manual runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: halo-battery
+          path: dist/*

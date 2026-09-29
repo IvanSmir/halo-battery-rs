@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "Jose Ferreira",
+    "copyright": "MIT License",
+    "category": "Utility",
+    "shortDescription": "Battery levels of wireless devices in the Windows tray",
+    "icon": ["icons/icon.ico"],
+    "externalBin": ["binaries/halo-battery"],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Spanish", "English"],
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
+  }
+}

@@ -1,2 +1,4 @@
 /target
+/dist
 /settings/gen/schemas
+/settings/binaries
