@@ -20,7 +20,7 @@ const SCALE: u32 = 2;
 
 fn to_pixmap(rgba: &[u8]) -> Pixmap {
     let mut pm = Pixmap::new(SIZE, SIZE).unwrap();
-    for (px, c) in pm.pixels_mut().iter_mut().zip(rgba.chunks_exact(4)) {
+    for (px, c) in pm.pixels_mut().iter_mut().zip(rgba.as_chunks::<4>().0) {
         *px = ColorU8::from_rgba(c[0], c[1], c[2], c[3]).premultiply();
     }
     pm

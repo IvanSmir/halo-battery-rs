@@ -67,7 +67,7 @@ mod rendering {
     fn every_kind_renders() {
         for kind in [Kind::Mouse, Kind::Keyboard, Kind::Headset, Kind::Gamepad] {
             let img = render(&IconState { kind, ..state(Some(50)) });
-            assert!(img.chunks_exact(4).any(|p| p[3] > 0), "{kind:?} draws something");
+            assert!(img.as_chunks::<4>().0.iter().any(|p| p[3] > 0), "{kind:?} draws something");
         }
     }
 
