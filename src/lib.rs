@@ -6,6 +6,8 @@
 //! - [`icon`]: draw the tray icon for a status (pure, no I/O)
 //! - [`platform`]: thin wrappers over the Windows APIs the app needs
 //! - [`config`]: user settings on disk
+//! - [`snapshot`]: the last device readings, published for the settings window
+//! - [`storage`]: where the files live and how they are written
 //! - [`app`]: the tray application that wires it all together
 //! - [`cli`]: the `--list` diagnostics command
 
@@ -16,3 +18,5 @@ pub mod device;
 pub mod icon;
 pub mod platform;
 pub mod providers;
+pub mod snapshot;
+pub mod storage;

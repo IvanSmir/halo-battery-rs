@@ -123,13 +123,13 @@ impl App {
             }
             Action::SetInterval(secs) => {
                 self.cfg.interval_secs = secs;
-                self.cfg.save();
+                let _ = self.cfg.save();
                 self.menu.show_interval(secs);
                 self.poller.set_interval(Duration::from_secs(secs));
             }
             Action::SetThreshold(low) => {
                 self.cfg.low_threshold = low;
-                self.cfg.save();
+                let _ = self.cfg.save();
                 self.menu.show_threshold(low);
                 self.alerts.reset();
                 self.raise_alerts();
