@@ -10,6 +10,17 @@ const BREATH_PERIOD: f32 = 3.0;
 /// Key of the placeholder shown while no device is visible.
 pub const PLACEHOLDER_KEY: &str = "__none__";
 
+const FNV_OFFSET: u128 = 0x6c62272e07bb014262b821756295c58d;
+const FNV_PRIME: u128 = 0x0000000001000000000000000000013b;
+
+/// The stable identity Windows pins a tray icon by, derived from the device
+/// key: 128-bit FNV-1a, written by hand because the standard hashers may
+/// change between Rust releases, and a different value would silently unpin
+/// the icon. Never change this algorithm; a test fixes its results.
+pub fn icon_guid(key: &str) -> u128 {
+    key.bytes().fold(FNV_OFFSET, |hash, byte| (hash ^ u128::from(byte)).wrapping_mul(FNV_PRIME))
+}
+
 /// Everything one tray icon needs.
 #[derive(Clone, Debug, PartialEq)]
 pub struct IconView {

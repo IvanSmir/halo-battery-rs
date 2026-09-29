@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use tray_icon::menu::Menu;
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
-use super::view::IconView;
+use super::view::{IconView, icon_guid};
 use crate::icon::{self, IconState};
 
 struct Entry {
@@ -48,18 +48,24 @@ impl Tray {
                 }
                 None => {
                     let Some(ic) = build_icon(&v.state) else { continue };
-                    let tray = TrayIconBuilder::new()
-                        .with_icon(ic)
-                        .with_tooltip(&v.tooltip)
-                        .with_menu(Box::new(self.menu.clone()))
-                        .build();
-                    if let Ok(tray) = tray {
+                    if let Some(tray) = self.add(&v.key, ic, &v.tooltip) {
                         let entry = Entry { tray, state: v.state, tooltip: v.tooltip.clone() };
                         self.entries.insert(v.key.clone(), entry);
                     }
                 }
             }
         }
+    }
+
+    /// Adds one icon under a GUID derived from `key`, so Windows sees the same
+    /// icon each time it comes back and keeps the user's pin. If Windows
+    /// refuses the GUID, the icon is added without it: an unpinned icon beats
+    /// no icon.
+    fn add(&self, key: &str, icon: Icon, tooltip: &str) -> Option<TrayIcon> {
+        let builder = |icon: Icon| {
+            TrayIconBuilder::new().with_icon(icon).with_tooltip(tooltip).with_menu(Box::new(self.menu.clone()))
+        };
+        builder(icon.clone()).with_guid(icon_guid(key)).build().or_else(|_| builder(icon).build()).ok()
     }
 
     /// Removes every icon from the tray.

@@ -1,7 +1,7 @@
 mod common;
 
 use common::{charging, device, offline};
-use halo_battery::app::view::{Look, PLACEHOLDER_KEY, icon_state, icons, is_animated, tooltip};
+use halo_battery::app::view::{Look, PLACEHOLDER_KEY, icon_guid, icon_state, icons, is_animated, tooltip};
 use halo_battery::config::{Config, DeviceSettings, RingColor};
 use halo_battery::icon::palette::ring_color;
 
@@ -115,5 +115,34 @@ mod icon_list {
     fn a_placeholder_when_every_device_is_hidden() {
         let cfg = with_device("a", DeviceSettings { visible: false, ..DeviceSettings::default() });
         assert_eq!(icons(&[device("a", Some(1))], &cfg, LOOK)[0].key, PLACEHOLDER_KEY);
+    }
+}
+
+mod tray_identity {
+    use super::*;
+
+    #[test]
+    fn the_guid_is_deterministic() {
+        assert_eq!(icon_guid("logitech:D988095B"), icon_guid("logitech:D988095B"));
+    }
+
+    #[test]
+    fn different_devices_get_different_guids() {
+        assert_ne!(icon_guid("logitech:D988095B"), icon_guid("logitech:D988095C"));
+        assert_ne!(icon_guid("a"), icon_guid("b"));
+    }
+
+    #[test]
+    fn the_placeholder_has_a_guid_of_its_own() {
+        assert_ne!(icon_guid(PLACEHOLDER_KEY), icon_guid("a"));
+        assert_ne!(icon_guid(PLACEHOLDER_KEY), 0);
+    }
+
+    /// Windows pins an icon by its GUID: if the algorithm ever changes, every
+    /// user's pinned icons silently unpin, so the exact values are fixed here.
+    #[test]
+    fn the_guid_values_never_change() {
+        assert_eq!(icon_guid(""), 0x6c62272e07bb014262b821756295c58d);
+        assert_eq!(icon_guid("logitech:D988095B"), 0x8cf31091f5492563cf28ca7df45c6975);
     }
 }
