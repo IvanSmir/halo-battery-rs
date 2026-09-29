@@ -1,11 +1,13 @@
-//! What the tray shows for a device: its icon state and tooltip. Pure.
+//! What the tray shows for the devices: which icons, with which state and
+//! tooltip, following the user's settings. Pure.
 
+use crate::config::Config;
 use crate::device::{DeviceStatus, Kind};
-use crate::icon::{self, IconState};
+use crate::icon::{self, IconState, palette};
 
 /// One "breath" of the charging animation, in seconds.
 const BREATH_PERIOD: f32 = 3.0;
-/// Key of the placeholder shown while no device is found.
+/// Key of the placeholder shown while no device is visible.
 pub const PLACEHOLDER_KEY: &str = "__none__";
 
 /// Everything one tray icon needs.
@@ -21,21 +23,40 @@ pub struct IconView {
 pub struct Look {
     pub low: u8,
     pub light_taskbar: bool,
+    /// Arc colour when the level is fine; `None` uses the taskbar colour.
+    pub ring: Option<palette::Rgb>,
+    pub animate: bool,
+    pub pictogram: bool,
     /// Seconds since the app started, for the charging animation.
     pub time: f32,
 }
 
-pub fn tooltip(d: &DeviceStatus) -> String {
+impl Look {
+    pub fn new(cfg: &Config, light_taskbar: bool, time: f32) -> Self {
+        Self {
+            low: cfg.low_threshold,
+            light_taskbar,
+            ring: palette::ring_color(cfg.appearance.ring_color),
+            animate: cfg.appearance.animate,
+            pictogram: cfg.appearance.pictogram,
+            time,
+        }
+    }
+}
+
+/// The tooltip of a device shown as `name`.
+pub fn tooltip(d: &DeviceStatus, name: &str) -> String {
     match (d.level, d.online, d.charging) {
-        (None, _, _) => format!("{}: nivel desconocido", d.name),
-        (Some(l), false, _) => format!("{}: dormido (último {l}%)", d.name),
-        (Some(l), true, true) => format!("{}: {l}% (cargando)", d.name),
-        (Some(l), true, false) => format!("{}: {l}%", d.name),
+        (None, _, _) => format!("{name}: nivel desconocido"),
+        (Some(l), false, _) => format!("{name}: dormido (último {l}%)"),
+        (Some(l), true, true) => format!("{name}: {l}% (cargando)"),
+        (Some(l), true, false) => format!("{name}: {l}%"),
     }
 }
 
 pub fn icon_state(d: &DeviceStatus, look: Look) -> IconState {
-    let pulse = if is_animated(d) { icon::breath_level((look.time / BREATH_PERIOD).fract()) } else { 1.0 };
+    let pulse =
+        if look.animate && is_animated(d) { icon::breath_level((look.time / BREATH_PERIOD).fract()) } else { 1.0 };
     IconState {
         level: d.level,
         charging: d.charging,
@@ -43,6 +64,8 @@ pub fn icon_state(d: &DeviceStatus, look: Look) -> IconState {
         kind: d.kind,
         low: look.low,
         light_taskbar: look.light_taskbar,
+        ring: look.ring,
+        pictogram: look.pictogram,
         pulse,
     }
 }
@@ -52,23 +75,33 @@ pub fn is_animated(d: &DeviceStatus) -> bool {
     d.charging && d.online
 }
 
-/// The icons to show for `devices`: one each, or a single placeholder when
-/// there are none, so the menu (and Exit) stays reachable.
-pub fn icons(devices: &[DeviceStatus], look: Look) -> Vec<IconView> {
-    if devices.is_empty() {
-        let placeholder = DeviceStatus {
-            key: PLACEHOLDER_KEY.into(),
-            name: "Halo Battery".into(),
-            level: None,
-            charging: false,
-            online: false,
-            kind: Kind::Mouse,
-        };
-        return vec![IconView {
-            key: placeholder.key.clone(),
-            state: icon_state(&placeholder, look),
-            tooltip: "Halo Battery: ningún dispositivo encontrado".into(),
-        }];
+/// The icons to show: one per device the user has not hidden, under its
+/// chosen name, or a single placeholder when none is left, so the menu (and
+/// Exit) stays reachable.
+pub fn icons(devices: &[DeviceStatus], cfg: &Config, look: Look) -> Vec<IconView> {
+    let views: Vec<IconView> = devices
+        .iter()
+        .filter(|d| cfg.device(&d.key).visible)
+        .map(|d| IconView {
+            key: d.key.clone(),
+            state: icon_state(d, look),
+            tooltip: tooltip(d, cfg.display_name(&d.key, &d.name)),
+        })
+        .collect();
+    if !views.is_empty() {
+        return views;
     }
-    devices.iter().map(|d| IconView { key: d.key.clone(), state: icon_state(d, look), tooltip: tooltip(d) }).collect()
+    let placeholder = DeviceStatus {
+        key: PLACEHOLDER_KEY.into(),
+        name: "Halo Battery".into(),
+        level: None,
+        charging: false,
+        online: false,
+        kind: Kind::Mouse,
+    };
+    vec![IconView {
+        key: placeholder.key.clone(),
+        state: icon_state(&placeholder, look),
+        tooltip: "Halo Battery: ningún dispositivo visible".into(),
+    }]
 }

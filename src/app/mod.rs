@@ -1,8 +1,11 @@
 //! The tray application: a background thread reads the batteries, the main
 //! thread owns the tray icons and runs the Win32 message loop.
+//!
+//! It shares two files with the settings window: it publishes every reading
+//! to devices.json, and applies config.json whenever the window rewrites it.
 //! - [`poller`]: the battery-reading thread
-//! - [`view`]: device status to icon state and tooltip (pure)
-//! - [`alerts`]: when to warn about a low battery (pure)
+//! - [`view`]: devices and settings to icon states and tooltips (pure)
+//! - [`alerts`]: when to notify (pure)
 //! - [`menu`]: the context menu, as [`menu::Action`]s
 //! - [`tray`]: keeps the system tray in line with the views
 
@@ -16,26 +19,32 @@ use std::sync::mpsc::{self, Receiver};
 use std::time::{Duration, Instant};
 
 use tray_icon::menu::MenuEvent;
+use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 use windows::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, MSG, MsgWaitForMultipleObjects, PM_REMOVE, PeekMessageW, QS_ALLINPUT, TranslateMessage, WM_QUIT,
 };
 
-use self::alerts::AlertTracker;
+use self::alerts::{AlertKind, AlertTracker};
 use self::menu::{Action, TrayMenu};
 use self::poller::Poller;
 use self::tray::Tray;
 use self::view::Look;
 use crate::config::Config;
 use crate::device::DeviceStatus;
-use crate::platform::{autostart, notify, theme};
+use crate::platform::{launch, notify, theme};
+use crate::snapshot::Snapshot;
+use crate::storage::FileWatch;
 
 /// Frame time of the loop, and of the charging animation.
 const TICK: Duration = Duration::from_millis(100);
 /// How often the taskbar theme is re-read.
 const THEME_CHECK: Duration = Duration::from_secs(5);
+/// How often config.json is checked for changes from the settings window.
+const CONFIG_CHECK: Duration = Duration::from_millis(500);
 
 struct App {
     cfg: Config,
+    config_watch: Option<FileWatch>,
     menu: TrayMenu,
     tray: Tray,
     poller: Poller,
@@ -52,11 +61,12 @@ impl App {
         let cfg = Config::load();
         let (tx, readings) = mpsc::channel();
         let poller = Poller::spawn(Duration::from_secs(cfg.interval_secs), tx);
-        let menu = TrayMenu::new(&cfg, autostart::is_enabled());
+        let menu = TrayMenu::new();
         let tray = Tray::new(menu.handle());
         let now = Instant::now();
         Self {
             cfg,
+            config_watch: Config::default_path().map(|p| FileWatch::new(p, CONFIG_CHECK)),
             menu,
             tray,
             poller,
@@ -70,34 +80,55 @@ impl App {
     }
 
     fn look(&self) -> Look {
-        Look {
-            low: self.cfg.low_threshold,
-            light_taskbar: self.light_taskbar,
-            time: self.started.elapsed().as_secs_f32(),
-        }
+        Look::new(&self.cfg, self.light_taskbar, self.started.elapsed().as_secs_f32())
     }
 
     fn redraw(&mut self) {
-        self.tray.sync(&view::icons(&self.devices, self.look()));
+        self.tray.sync(&view::icons(&self.devices, &self.cfg, self.look()));
     }
 
     fn raise_alerts(&mut self) {
-        for a in self.alerts.update(&self.devices, self.cfg.low_threshold) {
-            notify::toast("Batería baja", &format!("{} está al {}%", a.name, a.level));
+        for a in self.alerts.update(&self.devices, &self.cfg) {
+            let (title, text) = match a.kind {
+                AlertKind::Low => ("Batería baja", format!("{} está al {}%", a.name, a.level)),
+                AlertKind::Full => ("Carga completa", format!("{} está al {}%", a.name, a.level)),
+            };
+            notify::toast(title, &text, self.cfg.notifications.sound);
         }
     }
 
-    /// Takes in the newest readings; `true` when there were any.
+    /// Takes in the newest readings and publishes them; `true` when there were any.
     fn take_readings(&mut self) -> bool {
-        let mut changed = false;
+        let mut received = false;
         while let Ok(devices) = self.readings.try_recv() {
             self.devices = devices;
-            changed = true;
+            received = true;
         }
-        if changed {
+        if received {
+            self.raise_alerts();
+            if let Some(path) = Snapshot::default_path() {
+                let _ = Snapshot { devices: self.devices.clone() }.save_to(&path);
+            }
+        }
+        received
+    }
+
+    /// Applies config.json when the settings window changed it; `true` when it did.
+    fn check_config(&mut self) -> bool {
+        let Some(watch) = self.config_watch.as_mut() else { return false };
+        if !watch.changed() {
+            return false;
+        }
+        let new = Config::load_from(watch.path());
+        let old = std::mem::replace(&mut self.cfg, new);
+        if old.interval_secs != self.cfg.interval_secs {
+            self.poller.set_interval(Duration::from_secs(self.cfg.interval_secs));
+        }
+        if old.low_threshold != self.cfg.low_threshold {
+            self.alerts.reset();
             self.raise_alerts();
         }
-        changed
+        true
     }
 
     /// Re-reads the taskbar theme now and then; `true` when it changed.
@@ -117,23 +148,8 @@ impl App {
         match action {
             Action::Exit => return false,
             Action::Refresh => self.poller.poll_now(),
-            Action::SetAutostart(enable) => {
-                autostart::set_enabled(enable);
-                self.menu.show_autostart(autostart::is_enabled());
-            }
-            Action::SetInterval(secs) => {
-                self.cfg.interval_secs = secs;
-                let _ = self.cfg.save();
-                self.menu.show_interval(secs);
-                self.poller.set_interval(Duration::from_secs(secs));
-            }
-            Action::SetThreshold(low) => {
-                self.cfg.low_threshold = low;
-                let _ = self.cfg.save();
-                self.menu.show_threshold(low);
-                self.alerts.reset();
-                self.raise_alerts();
-                self.redraw();
+            Action::OpenSettings => {
+                let _ = launch::open_settings();
             }
         }
         true
@@ -147,9 +163,16 @@ impl App {
                 return false;
             }
         }
+        while let Ok(ev) = TrayIconEvent::receiver().try_recv() {
+            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = ev {
+                self.apply(Action::OpenSettings);
+            }
+        }
         let readings = self.take_readings();
+        let config = self.check_config();
         let theme = self.check_theme();
-        if readings || theme || self.devices.iter().any(view::is_animated) {
+        let animating = self.cfg.appearance.animate && self.devices.iter().any(view::is_animated);
+        if readings || config || theme || animating {
             self.redraw();
         }
         true

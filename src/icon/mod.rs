@@ -45,6 +45,10 @@ pub struct IconState {
     /// Low-battery threshold in percent.
     pub low: u8,
     pub light_taskbar: bool,
+    /// Arc colour when the level is fine; `None` uses the taskbar colour.
+    pub ring: Option<palette::Rgb>,
+    /// Draw the device pictogram inside the ring.
+    pub pictogram: bool,
     /// Arc brightness 0..=1, one frame of the charging "breathing" animation.
     pub pulse: f32,
 }
@@ -69,7 +73,7 @@ pub fn render(st: &IconState) -> Vec<u8> {
 
     if let (true, Some(level)) = (active, st.level) {
         let alpha = (255.0 * st.pulse.clamp(0.0, 1.0)) as u8;
-        let arc = paint(palette::arc_color(st.level, st.charging, st.low, fg), alpha);
+        let arc = paint(palette::arc_color(st.level, st.charging, st.low, st.ring.unwrap_or(fg)), alpha);
         let level = level.min(100);
         if level == 100 {
             stroke(&mut pm, &circle(c, c, r), &arc, RING_W, LineCap::Butt);
@@ -81,7 +85,9 @@ pub fn render(st: &IconState) -> Vec<u8> {
     }
 
     let col = paint(fg, if active { ALPHA_ACTIVE } else { ALPHA_INACTIVE });
-    pictograms::draw(&mut pm, st.kind, c, &col);
+    if st.pictogram {
+        pictograms::draw(&mut pm, st.kind, c, &col);
+    }
 
     pm.pixels()
         .iter()

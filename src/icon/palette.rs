@@ -1,5 +1,7 @@
 //! Colours of the icon, following the system battery icon.
 
+use crate::config::RingColor;
+
 pub type Rgb = [u8; 3];
 
 pub const RED: Rgb = [232, 17, 35];
@@ -19,8 +21,8 @@ pub fn foreground(light_taskbar: bool) -> Rgb {
 }
 
 /// Colour of the charge arc: green while charging, red at or below the low
-/// threshold, amber just above it, otherwise the foreground colour.
-pub fn arc_color(level: Option<u8>, charging: bool, low: u8, fg: Rgb) -> Rgb {
+/// threshold, amber just above it, otherwise `normal`.
+pub fn arc_color(level: Option<u8>, charging: bool, low: u8, normal: Rgb) -> Rgb {
     if charging {
         return GREEN;
     }
@@ -28,6 +30,17 @@ pub fn arc_color(level: Option<u8>, charging: bool, low: u8, fg: Rgb) -> Rgb {
     match level {
         Some(l) if l <= thr => RED,
         Some(l) if l <= thr + AMBER_BAND => AMBER,
-        _ => fg,
+        _ => normal,
+    }
+}
+
+/// The arc colour picked in the settings; `None` follows the taskbar.
+pub fn ring_color(choice: RingColor) -> Option<Rgb> {
+    match choice {
+        RingColor::Auto => None,
+        RingColor::Blue => Some([47, 140, 255]),
+        RingColor::Violet => Some([167, 139, 250]),
+        RingColor::Mint => Some([45, 212, 191]),
+        RingColor::Rose => Some([244, 114, 182]),
     }
 }

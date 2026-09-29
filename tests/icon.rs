@@ -1,9 +1,20 @@
+use halo_battery::config::RingColor;
 use halo_battery::device::Kind;
-use halo_battery::icon::palette::{AMBER, BLACK, GREEN, RED, WHITE, arc_color, foreground};
+use halo_battery::icon::palette::{AMBER, BLACK, GREEN, RED, WHITE, arc_color, foreground, ring_color};
 use halo_battery::icon::{IconState, SIZE, breath_level, render};
 
 fn state(level: Option<u8>) -> IconState {
-    IconState { level, charging: false, online: true, kind: Kind::Mouse, low: 20, light_taskbar: false, pulse: 1.0 }
+    IconState {
+        level,
+        charging: false,
+        online: true,
+        kind: Kind::Mouse,
+        low: 20,
+        light_taskbar: false,
+        ring: None,
+        pictogram: true,
+        pulse: 1.0,
+    }
 }
 
 /// RGBA of the pixel at (x, y).
@@ -79,6 +90,29 @@ mod rendering {
         let img = render(&IconState { light_taskbar: true, ..state(Some(80)) });
         let [r, g, b, _] = pixel(&img, RING_TOP.0, RING_TOP.1);
         assert_eq!([r, g, b], BLACK);
+    }
+
+    #[test]
+    fn a_chosen_ring_colour_replaces_the_taskbar_colour() {
+        let mint = ring_color(RingColor::Mint).unwrap();
+        let img = render(&IconState { ring: Some(mint), ..state(Some(80)) });
+        let [r, g, b, _] = pixel(&img, RING_TOP.0, RING_TOP.1);
+        assert_eq!([r, g, b], mint);
+    }
+
+    #[test]
+    fn warnings_keep_their_colour_whatever_the_ring_colour() {
+        let img = render(&IconState { ring: ring_color(RingColor::Mint), ..state(Some(10)) });
+        let [r, g, b, _] = pixel(&img, RING_TOP.0, RING_TOP.1);
+        assert_eq!([r, g, b], RED);
+    }
+
+    #[test]
+    fn without_pictogram_the_centre_stays_empty() {
+        let c = SIZE / 2;
+        assert!(pixel(&render(&state(Some(50))), c, c)[3] > 0, "the mouse covers the centre");
+        let [.., a] = pixel(&render(&IconState { pictogram: false, ..state(Some(50)) }), c, c);
+        assert_eq!(a, 0);
     }
 }
 

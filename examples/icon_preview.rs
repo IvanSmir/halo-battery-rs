@@ -40,7 +40,17 @@ fn main() {
 
         for (row, &kind) in KINDS.iter().enumerate() {
             for (col, &(level, charging, online)) in STATES.iter().enumerate() {
-                let st = IconState { level, charging, online, kind, low: 20, light_taskbar: light, pulse: 1.0 };
+                let st = IconState {
+                    level,
+                    charging,
+                    online,
+                    kind,
+                    low: 20,
+                    light_taskbar: light,
+                    ring: None,
+                    pictogram: true,
+                    pulse: 1.0,
+                };
                 let img = to_pixmap(&icon::render(&st));
                 let at = Transform::from_scale(SCALE as f32, SCALE as f32)
                     .post_translate(col as f32 * cell, y0 + row as f32 * cell);

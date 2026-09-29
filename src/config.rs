@@ -9,11 +9,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::storage;
 
-/// Poll intervals offered in the tray menu, in seconds.
-pub const INTERVALS: [u64; 5] = [15, 30, 60, 120, 300];
-/// Low-battery thresholds offered in the tray menu, in percent.
-pub const THRESHOLDS: [u8; 5] = [10, 15, 20, 25, 30];
-
 /// Bounds a hand-edited file is clamped to: polling faster than this only
 /// wastes power, and a threshold outside this range makes no sense.
 const MIN_INTERVAL_SECS: u64 = 5;

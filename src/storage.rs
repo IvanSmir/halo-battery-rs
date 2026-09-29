@@ -34,3 +34,43 @@ pub fn read_json<T: DeserializeOwned>(path: &Path) -> Option<T> {
 pub fn modified(path: &Path) -> Option<std::time::SystemTime> {
     std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
+
+/// Notices when another process rewrote a file, by its modification time,
+/// checking at most once per `every`.
+pub struct FileWatch {
+    path: PathBuf,
+    seen: Option<std::time::SystemTime>,
+    every: std::time::Duration,
+    checked: std::time::Instant,
+}
+
+impl FileWatch {
+    /// Starts watching `path` as it is now: only later changes count.
+    pub fn new(path: PathBuf, every: std::time::Duration) -> Self {
+        let seen = modified(&path);
+        Self { path, seen, every, checked: std::time::Instant::now() }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// `true` once per change of the file (created, rewritten or removed).
+    pub fn changed(&mut self) -> bool {
+        if self.checked.elapsed() < self.every {
+            return false;
+        }
+        self.checked = std::time::Instant::now();
+        let now = modified(&self.path);
+        if now == self.seen {
+            return false;
+        }
+        self.seen = now;
+        true
+    }
+
+    /// Marks the current state of the file as seen, e.g. after writing it ourselves.
+    pub fn mark_seen(&mut self) {
+        self.seen = modified(&self.path);
+    }
+}

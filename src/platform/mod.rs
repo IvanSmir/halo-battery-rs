@@ -4,6 +4,7 @@
 pub mod autostart;
 pub mod console;
 pub mod instance;
+pub mod launch;
 pub mod notify;
 pub mod theme;
 pub mod winrt;
