@@ -471,6 +471,24 @@ h1 {
   stroke: none;
 }
 
+/* the per-device colour row: the same swatches, smaller */
+.device .swatches {
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.device .swatch {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+.device .swatch.active {
+  box-shadow:
+    0 0 0 2px #0b1220,
+    0 0 0 4px var(--c);
+}
+
 .vline {
   width: 1px;
   align-self: stretch;

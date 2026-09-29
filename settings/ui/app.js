@@ -59,7 +59,8 @@ const state = { config: null, devices: [] };
 
 // ---------------------------------------------------------------- config
 
-const DEVICE_DEFAULTS = { alias: "", visible: true, notify: true };
+// ring_color: null follows the global colour; "auto" is the taskbar colour
+const DEVICE_DEFAULTS = { alias: "", visible: true, notify: true, ring_color: null };
 
 function deviceSettings(key) {
   return { ...DEVICE_DEFAULTS, ...(state.config.devices[key] ?? {}) };
@@ -149,6 +150,41 @@ function statusPill(d) {
   return `<span class="pill" style="--c:${COLORS.green}"><span class="led"></span>Conectado</span>`;
 }
 
+/** The colour a card's ring previews: its own choice, or the global one it inherits. */
+function cardRing(s) {
+  return RING_COLORS.find((c) => c.id === s.ring_color)?.c ?? "";
+}
+
+function deviceSwatches(s) {
+  const choices = [{ id: "", c: "#8f9bb0", label: "G", title: "Como el ajuste global" }, ...RING_COLORS];
+  return choices
+    .map((c) => {
+      const title = c.title ?? (c.id === "auto" ? "Según la barra de tareas" : "");
+      const active = (s.ring_color ?? "") === c.id;
+      return `<button class="swatch ${active ? "active" : ""}" style="--c:${c.c}" data-id="${c.id}" title="${title}">${c.label ?? ""}</button>`;
+    })
+    .join("");
+}
+
+/** Paints a card's swatch row and applies its choice to the ring preview. */
+function renderCardSwatches(card) {
+  const key = card.dataset.key;
+  const s = deviceSettings(key);
+  const row = $(".swatches", card);
+  row.innerHTML = deviceSwatches(s);
+  // no own colour: the card inherits the global --ring from the root
+  const own = cardRing(s);
+  if (own) card.style.setProperty("--ring", own);
+  else card.style.removeProperty("--ring");
+  $$(".swatch", row).forEach((b) =>
+    b.addEventListener("click", () => {
+      setDevice(key, { ring_color: b.dataset.id || null });
+      renderCardSwatches(card);
+      save();
+    }),
+  );
+}
+
 function deviceCard(d, i) {
   const s = deviceSettings(d.key);
   return `
@@ -162,6 +198,7 @@ function deviceCard(d, i) {
         </div>
         <div class="meta">${icon(d.kind)} ${KIND_LABEL[d.kind] ?? ""} · detectado como «${escape(d.name)}»</div>
         ${statusPill(d)}
+        <div class="swatches" title="Color del anillo de este dispositivo"></div>
       </div>
       <div class="vline"></div>
       <div class="toggles">
@@ -193,6 +230,7 @@ function bindCard(card) {
     }),
   );
   $(".more", card).addEventListener("click", (e) => openMenu(e, card));
+  renderCardSwatches(card);
 }
 
 /** Patches the cards in place when the same devices are shown (so a name

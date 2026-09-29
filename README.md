@@ -26,14 +26,20 @@ Run `halo-battery.exe`. Click any of its icons (or pick **Configuración…**
 from the right-click menu) to open the settings window:
 
 - **Dispositivos** - every detected device with its live level; rename it,
-  hide it from the tray or silence its notifications
+  hide it from the tray, silence its notifications or give it its own ring
+  colour ("G" follows the global one from **Apariencia**)
 - **Notificaciones** - master switch, low-battery threshold (once per
   discharge), full-charge alert and sound
-- **Apariencia** - ring colour, charging animation, pictogram
+- **Apariencia** - ring colour, charging animation, pictogram.
 - **General** - poll interval, start with Windows, update checks and
   **Exportar diagnóstico**
 
 The right-click menu also has **Actualizar ahora** and **Salir**.
+
+Each device's tray icon keeps a stable identity derived from its key, so a
+taskbar pin survives the device sleeping and coming back (Windows may still
+forget it if the executable moves to another path, as it does for unsigned
+builds).
 
 ### Update checks
 
