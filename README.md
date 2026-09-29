@@ -118,25 +118,30 @@ README) is in English.
 ## Architecture
 
 A cargo workspace: the root crate is the library plus the tray binary
-(`src/main.rs` only picks between the tray app and `--list`); `settings/` is
-the Tauri window. Pure logic is kept apart from I/O so it can be tested
-without hardware.
+(`src/main.rs` only picks between the tray app, `--list` and `--diagnose`);
+`settings/` is the Tauri window. Pure logic is kept apart from I/O so it can be
+tested without hardware.
 
 ```
 src/
   device.rs            data model: DeviceStatus, Kind
   providers/           hardware -> DeviceStatus
     mod.rs             Provider trait and the registry of providers
+    inventory.rs       the HID devices, listed once per poll for every provider
     last_seen.rs       keeps asleep devices, greyed out, for a while
     logitech/
+      discovery.rs     which HID interfaces are HID++ endpoints (pure)
       protocol.rs      HID++ 2.0 messages and decoding (pure)
       transport.rs     request/response contract and multi-request reads
       channel.rs       the transport over hidapi
       slot.rs          reads one receiver slot, one request once known
-      mod.rs           receiver discovery
+      mod.rs           the provider
     gamepad/
       mapping.rs       names and capacity -> percent (pure)
       mod.rs           Windows.Gaming.Input reads
+    bluetooth/
+      mapping.rs       device nodes -> devices, and what each shows as (pure)
+      mod.rs           the levels Windows knows, connection state from WinRT
   icon/                IconState -> RGBA pixels (pure)
     palette.rs         colours and the arc colour rule
     shapes.rs          drawing primitives
@@ -148,11 +153,16 @@ src/
     menu.rs            context menu -> Action values
     tray.rs            keeps the system tray in sync with the views
     mod.rs             wiring, shared files and the Win32 message loop
-  platform/            thin Windows wrappers: theme, autostart, toast, launch, ...
+  diagnose/            the report used to support new devices
+    descriptor.rs      which usage pages a HID descriptor declares (pure)
+    report.rs          the report and its text (pure)
+    mod.rs             collects it
+  platform/            thin Windows wrappers: Bluetooth, theme, autostart, toast,
+                       launch, folders, system info, ...
   config.rs            settings file, validated on load
   snapshot.rs          the last readings, published for the window
   storage.rs           data directory, atomic JSON writes, file watching
-  cli.rs               --list diagnostics
+  cli.rs               --list and --diagnose
 settings/              the settings window
   src/main.rs          commands over the shared files, pushes live updates
   ui/                  HTML, CSS and JS (no bundler)
