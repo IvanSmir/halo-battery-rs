@@ -47,6 +47,13 @@
 
       <main class="panel">
         <div class="content">
+          <div class="banner update glass" id="update-banner" hidden>
+            <div>
+              <div class="title">Actualización disponible</div>
+              <div class="desc" id="update-text"></div>
+            </div>
+            <button class="primary" id="open-update">Descargar</button>
+          </div>
           <section class="page active" id="page-devices">
             <h1>Dispositivos</h1>
             <p class="sub">Detectados automáticamente. Escribe un nombre para renombrarlos.</p>
@@ -123,6 +130,13 @@
               <label class="glass card setting">
                 <div><div class="title">Iniciar con Windows</div><div class="desc">Abre Halo Battery al iniciar sesión.</div></div>
                 <input type="checkbox" class="switch" id="autostart" />
+              </label>
+              <label class="glass card setting">
+                <div>
+                  <div class="title">Buscar actualizaciones</div>
+                  <div class="desc">Comprueba una vez al día si hay una versión nueva en GitHub. Es lo único que se conecta a internet.</div>
+                </div>
+                <input type="checkbox" class="switch" id="check-updates" />
               </label>
               <div class="glass card setting">
                 <div>

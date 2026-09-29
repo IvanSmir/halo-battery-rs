@@ -27,8 +27,22 @@ pub struct Config {
     pub low_threshold: u8,
     pub notifications: Notifications,
     pub appearance: Appearance,
+    pub updates: Updates,
     /// Per-device settings by device key; devices not listed use the defaults.
     pub devices: BTreeMap<String, DeviceSettings>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Updates {
+    /// Look for a newer release once a day (the only thing that goes online).
+    pub check: bool,
+}
+
+impl Default for Updates {
+    fn default() -> Self {
+        Self { check: true }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -82,6 +96,7 @@ impl Default for Config {
             low_threshold: 20,
             notifications: Notifications::default(),
             appearance: Appearance::default(),
+            updates: Updates::default(),
             devices: BTreeMap::new(),
         }
     }

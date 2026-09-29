@@ -48,6 +48,7 @@ mod file {
         let cfg = Config::load_from(&path);
         assert_eq!((cfg.interval_secs, cfg.low_threshold), (120, 30));
         assert_eq!(cfg.appearance, Config::default().appearance);
+        assert!(cfg.updates.check, "update checks default to on");
     }
 
     #[test]

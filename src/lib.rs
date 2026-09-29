@@ -8,6 +8,7 @@
 //! - [`config`]: user settings on disk
 //! - [`snapshot`]: the last device readings, published for the settings window
 //! - [`storage`]: where the files live and how they are written
+//! - [`update`]: looking for a newer release
 //! - [`app`]: the tray application that wires it all together
 //! - [`cli`]: the `--list` and `--diagnose` commands
 //! - [`diagnose`]: the diagnostics report used to support new devices
@@ -22,3 +23,4 @@ pub mod platform;
 pub mod providers;
 pub mod snapshot;
 pub mod storage;
+pub mod update;

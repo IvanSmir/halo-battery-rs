@@ -8,11 +8,13 @@
 //! - [`alerts`]: when to notify (pure)
 //! - [`menu`]: the context menu, as [`menu::Action`]s
 //! - [`tray`]: keeps the system tray in line with the views
+//! - [`updater`]: looks for a newer release
 
 pub mod alerts;
 pub mod menu;
 pub mod poller;
 pub mod tray;
+pub mod updater;
 pub mod view;
 
 use std::sync::mpsc::{self, Receiver};
@@ -34,6 +36,7 @@ use crate::device::DeviceStatus;
 use crate::platform::{launch, notify, theme};
 use crate::snapshot::Snapshot;
 use crate::storage::FileWatch;
+use crate::update::source::Release;
 
 /// Frame time of the loop, and of the charging animation.
 const TICK: Duration = Duration::from_millis(100);
@@ -49,6 +52,8 @@ struct App {
     tray: Tray,
     poller: Poller,
     readings: Receiver<Vec<DeviceStatus>>,
+    /// Releases the user should be told about, from the updater thread.
+    updates: Receiver<Release>,
     alerts: AlertTracker,
     devices: Vec<DeviceStatus>,
     light_taskbar: bool,
@@ -61,6 +66,8 @@ impl App {
         let cfg = Config::load();
         let (tx, readings) = mpsc::channel();
         let poller = Poller::spawn(Duration::from_secs(cfg.interval_secs), tx);
+        let (update_tx, updates) = mpsc::channel();
+        updater::spawn(update_tx);
         let menu = TrayMenu::new();
         let tray = Tray::new(menu.handle());
         let now = Instant::now();
@@ -71,6 +78,7 @@ impl App {
             tray,
             poller,
             readings,
+            updates,
             alerts: AlertTracker::new(),
             devices: Vec::new(),
             light_taskbar: theme::taskbar_is_light(),
@@ -94,6 +102,26 @@ impl App {
                 AlertKind::Full => ("Carga completa", format!("{} está al {}%", a.name, a.level)),
             };
             notify::toast(title, &text, self.cfg.notifications.sound);
+        }
+    }
+
+    /// Tells the user about a new release; the master notification switch
+    /// silences it too (the settings window still shows it).
+    fn announce_updates(&mut self) {
+        while let Ok(release) = self.updates.try_recv() {
+            if !self.cfg.notifications.enabled {
+                continue;
+            }
+            let url = release.url.clone();
+            notify::toast_with_action(
+                "Actualización disponible",
+                &format!("Halo Battery {} está disponible.", release.version),
+                self.cfg.notifications.sound,
+                "Descargar",
+                move || {
+                    let _ = launch::open_url(&url);
+                },
+            );
         }
     }
 
@@ -168,6 +196,7 @@ impl App {
                 self.apply(Action::OpenSettings);
             }
         }
+        self.announce_updates();
         let readings = self.take_readings();
         let config = self.check_config();
         let theme = self.check_theme();

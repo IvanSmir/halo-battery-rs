@@ -30,9 +30,23 @@ from the right-click menu) to open the settings window:
 - **Notificaciones** - master switch, low-battery threshold (once per
   discharge), full-charge alert and sound
 - **Apariencia** - ring colour, charging animation, pictogram
-- **General** - poll interval, start with Windows and **Exportar diagnóstico**
+- **General** - poll interval, start with Windows, update checks and
+  **Exportar diagnóstico**
 
 The right-click menu also has **Actualizar ahora** and **Salir**.
+
+### Update checks
+
+Thirty seconds after it starts and then once a day, the tray asks the GitHub
+releases API for the latest release; it is the only thing the app sends over
+the network, and **General → Buscar actualizaciones** turns it off. A newer
+version is announced once, with a notification whose **Descargar** button
+opens the release page, and as a banner in the settings window. Nothing is
+downloaded or installed automatically.
+
+Where releases are looked up is behind the `update::source::UpdateSource`
+trait; `update::default_source()` picks GitHub today, and another source (a
+website serving a small JSON file, say) only needs another implementation.
 
 `halo-battery.exe --list` prints what each provider sees, useful when a device
 does not show up.
@@ -65,7 +79,9 @@ The tray (`halo-battery.exe`, ~3 MB of memory) and the settings window
 - `config.json` - written by the window on every change; the tray applies it
   as soon as it changes
 
-Both are written atomically (temporary file + rename).
+A third file, `update.json`, holds what the last update check found.
+
+All of them are written atomically (temporary file + rename).
 
 ## Build
 
@@ -152,13 +168,19 @@ src/
     alerts.rs          when to notify (pure)
     menu.rs            context menu -> Action values
     tray.rs            keeps the system tray in sync with the views
+    updater.rs         background thread that looks for a newer release
     mod.rs             wiring, shared files and the Win32 message loop
+  update/              "an update is available"
+    version.rs         versions and their order (pure)
+    source.rs          where releases are looked up, as a trait
+    github.rs          the GitHub releases source
+    state.rs           what was found and announced (pure decisions)
   diagnose/            the report used to support new devices
     descriptor.rs      which usage pages a HID descriptor declares (pure)
     report.rs          the report and its text (pure)
     mod.rs             collects it
-  platform/            thin Windows wrappers: Bluetooth, theme, autostart, toast,
-                       launch, folders, system info, ...
+  platform/            thin Windows wrappers: Bluetooth, HTTP, theme, autostart,
+                       toast, launch, folders, system info, ...
   config.rs            settings file, validated on load
   snapshot.rs          the last readings, published for the window
   storage.rs           data directory, atomic JSON writes, file watching

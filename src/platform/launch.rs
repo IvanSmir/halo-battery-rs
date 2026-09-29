@@ -24,3 +24,18 @@ pub fn start_tray() -> std::io::Result<()> {
     let exe = sibling(TRAY_EXE).ok_or_else(|| std::io::Error::other("cannot locate the tray"))?;
     Command::new(exe).spawn().map(drop)
 }
+
+/// Opens an `https://` address in the default browser. Anything else is
+/// refused, so a stored URL can never start a program.
+pub fn open_url(url: &str) -> std::io::Result<()> {
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    use windows::core::{HSTRING, w};
+
+    if !url.starts_with("https://") {
+        return Err(std::io::Error::other(format!("not an https address: {url}")));
+    }
+    let result = unsafe { ShellExecuteW(None, w!("open"), &HSTRING::from(url), None, None, SW_SHOWNORMAL) };
+    // ShellExecute reports success with a value above 32
+    if result.0 as usize > 32 { Ok(()) } else { Err(std::io::Error::other("could not open the browser")) }
+}

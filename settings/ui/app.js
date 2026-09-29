@@ -338,6 +338,20 @@ function showTray(running) {
 
 $("#start-tray").addEventListener("click", () => invoke("start_tray").catch(console.error));
 
+// ---------------------------------------------------------------- updates
+
+/** The newer release the tray found, or null. */
+let availableUpdate = null;
+
+function showUpdate(release) {
+  availableUpdate = release;
+  const visible = Boolean(release) && state.config.updates.check;
+  $("#update-banner").hidden = !visible;
+  if (visible) $("#update-text").textContent = `Halo Battery ${release.version} ya se puede descargar.`;
+}
+
+$("#open-update").addEventListener("click", () => invoke("open_update").catch(console.error));
+
 // ---------------------------------------------------------------- diagnostics
 
 $("#diagnose").addEventListener("click", async () => {
@@ -376,6 +390,10 @@ async function start() {
     document.body.classList.toggle("no-anim", !v);
   });
   document.body.classList.toggle("no-anim", !cfg.appearance.animate);
+  bindSwitch("check-updates", () => cfg.updates.check, (v) => {
+    cfg.updates.check = v;
+    showUpdate(availableUpdate);
+  });
 
   const autostart = $("#autostart");
   autostart.checked = initial.autostart;
@@ -387,10 +405,12 @@ async function start() {
   renderSwatches();
   renderIntervals();
   showTray(initial.tray_running);
+  showUpdate(initial.update);
   renderDevices(initial.devices);
 
   tauri.event.listen("devices", (e) => renderDevices(e.payload));
   tauri.event.listen("tray", (e) => showTray(e.payload));
+  tauri.event.listen("update", (e) => showUpdate(e.payload));
 }
 
 start().catch((e) => console.error("could not load the settings", e));
