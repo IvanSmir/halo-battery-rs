@@ -3,7 +3,12 @@
 //! device (the GATT Battery Service for Bluetooth LE, the hands-free profile
 //! for headsets) and stores it as a device property; reading it sends nothing
 //! to the device.
+//!
+//! Windows keeps the last level of a device that is switched off, so whether
+//! it is connected is asked separately ([`link`]), through the same WinRT API
+//! the Settings page uses.
 
+use windows::Devices::Bluetooth::{BluetoothConnectionStatus, BluetoothDevice as WinRtDevice, BluetoothLEDevice};
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SP_DEVINFO_DATA, SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo,
     SetupDiGetClassDevsW, SetupDiGetDeviceInstanceIdW, SetupDiGetDevicePropertyW,
@@ -20,8 +25,9 @@ const FRIENDLY_NAME: DEVPROPKEY =
 /// DEVPKEY_NAME, the name shown when there is no friendly name.
 const NAME: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u128(0xb725f130_47ef_101a_a5f1_02608c9ebac0), pid: 10 };
 
-/// Device instance ids of Bluetooth devices start with one of these.
-const BLUETOOTH_ENUMERATORS: [&str; 2] = [r"BTHENUM\", r"BTHLE\"];
+/// Device instance ids of Bluetooth devices start with one of these; LE
+/// services (BTHLEDEVICE), such as the Battery Service, are nodes of their own.
+const BLUETOOTH_ENUMERATORS: [&str; 3] = [r"BTHENUM\", r"BTHLE\", r"BTHLEDEVICE\"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BluetoothDevice {
@@ -82,4 +88,35 @@ fn string_property(set: HDEVINFO, data: &SP_DEVINFO_DATA, key: &DEVPROPKEY) -> O
 fn utf16_until_nul(buf: &[u16]) -> String {
     let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
     String::from_utf16_lossy(&buf[..end])
+}
+
+/// What WinRT says about a paired device right now.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Link {
+    pub connected: bool,
+    /// Class of Device (classic Bluetooth), which tells a headset from a keyboard.
+    pub class_of_device: Option<u32>,
+    /// GAP Appearance (Bluetooth LE), the same for LE devices.
+    pub appearance: Option<u16>,
+}
+
+/// The link state of the device with this address; `None` when Windows does
+/// not know it. `le` picks the Bluetooth LE or the classic API. Needs WinRT
+/// initialised on the calling thread.
+pub fn link(address: u64, le: bool) -> Option<Link> {
+    if le {
+        let d = BluetoothLEDevice::FromBluetoothAddressAsync(address).ok()?.join().ok()?;
+        Some(Link {
+            connected: d.ConnectionStatus().ok()? == BluetoothConnectionStatus::Connected,
+            class_of_device: None,
+            appearance: d.Appearance().and_then(|a| a.RawValue()).ok(),
+        })
+    } else {
+        let d = WinRtDevice::FromBluetoothAddressAsync(address).ok()?.join().ok()?;
+        Some(Link {
+            connected: d.ConnectionStatus().ok()? == BluetoothConnectionStatus::Connected,
+            class_of_device: d.ClassOfDevice().and_then(|c| c.RawValue()).ok(),
+            appearance: None,
+        })
+    }
 }

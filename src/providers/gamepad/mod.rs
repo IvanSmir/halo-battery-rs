@@ -6,10 +6,17 @@
 //!
 //! The controller list fills asynchronously after the process starts, so the
 //! first poll may see nothing yet.
+//!
+//! Over Bluetooth its battery report is not usable (an Xbox Wireless
+//! Controller read 10% at 82%), so controllers connected over Bluetooth are
+//! left to the Bluetooth provider, which reads the level Windows shows.
 //! - [`mapping`]: raw values to the app's model (pure)
 
 pub mod mapping;
 
+use std::collections::HashSet;
+
+use hidapi::{BusType, HidApi};
 use windows::Gaming::Input::RawGameController;
 use windows::System::Power::BatteryStatus;
 
@@ -34,10 +41,19 @@ impl GamepadProvider {
         Self { diag: Vec::new() }
     }
 
-    fn read_controller(&mut self, n: usize, c: &RawGameController) -> windows::core::Result<Option<DeviceStatus>> {
+    fn read_controller(
+        &mut self,
+        n: usize,
+        c: &RawGameController,
+        bluetooth: &HashSet<(u16, u16)>,
+    ) -> windows::core::Result<Option<DeviceStatus>> {
         let vid = c.HardwareVendorId()?;
         let pid = c.HardwareProductId()?;
         let raw_name = c.DisplayName()?.to_string();
+        if bluetooth.contains(&(vid, pid)) {
+            self.diag.push(format!("[WGI] '{raw_name}' {vid:04x}:{pid:04x}: over Bluetooth, left to that provider"));
+            return Ok(None);
+        }
         let Ok(report) = c.TryGetBatteryReport() else {
             self.diag.push(format!("[WGI] '{raw_name}' {vid:04x}:{pid:04x}: no battery report"));
             return Ok(None);
@@ -63,9 +79,10 @@ impl GamepadProvider {
     }
 
     fn read_all(&mut self) -> windows::core::Result<Vec<DeviceStatus>> {
+        let bluetooth = bluetooth_hid_ids();
         let mut out = Vec::new();
         for (n, c) in RawGameController::RawGameControllers()?.into_iter().enumerate() {
-            match self.read_controller(n, &c) {
+            match self.read_controller(n, &c, &bluetooth) {
                 Ok(st) => out.extend(st),
                 Err(e) => self.diag.push(format!("[WGI] controller {n}: {e}")),
             }
@@ -75,6 +92,15 @@ impl GamepadProvider {
         }
         Ok(out)
     }
+}
+
+/// Vendor and product ids of the HID devices connected over Bluetooth.
+fn bluetooth_hid_ids() -> HashSet<(u16, u16)> {
+    let Ok(api) = HidApi::new() else { return HashSet::new() };
+    api.device_list()
+        .filter(|d| matches!(d.bus_type(), BusType::Bluetooth))
+        .map(|d| (d.vendor_id(), d.product_id()))
+        .collect()
 }
 
 impl Provider for GamepadProvider {

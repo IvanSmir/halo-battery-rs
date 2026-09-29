@@ -16,6 +16,7 @@ translucent, for five minutes. Hover an icon for the exact percentage.
 | --- | --- |
 | Logitech mice and keyboards (Lightspeed / Unifying, e.g. PRO X Superlight 2) | HID++ 2.0, features `0x1004` / `0x1000` / `0x1001` |
 | Xbox-compatible controllers (e.g. GameSir G7 Pro on its 2.4 GHz receiver) | Windows.Gaming.Input battery report |
+| Bluetooth headsets, keyboards, mice and controllers whose level Windows shows in Settings | `DEVPKEY_Bluetooth_Battery` through SetupAPI, connection state through WinRT |
 
 Every query is a read; no device setting is ever changed.
 

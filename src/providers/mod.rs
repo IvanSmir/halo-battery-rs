@@ -2,6 +2,7 @@
 //! how to read their battery. Adding a device family means adding a module
 //! here and registering it in [`all`].
 
+pub mod bluetooth;
 pub mod gamepad;
 pub mod last_seen;
 pub mod logitech;
@@ -20,7 +21,11 @@ pub trait Provider {
 
 /// Every provider, in the order their icons appear.
 pub fn all() -> Vec<Box<dyn Provider>> {
-    vec![Box::new(logitech::LogitechProvider::new()), Box::new(gamepad::GamepadProvider::new())]
+    vec![
+        Box::new(logitech::LogitechProvider::new()),
+        Box::new(gamepad::GamepadProvider::new()),
+        Box::new(bluetooth::BluetoothProvider::new()),
+    ]
 }
 
 pub(crate) fn hexdump(data: &[u8], limit: usize) -> String {
