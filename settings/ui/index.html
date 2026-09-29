@@ -50,6 +50,13 @@
           <section class="page active" id="page-devices">
             <h1>Dispositivos</h1>
             <p class="sub">Detectados automáticamente. Escribe un nombre para renombrarlos.</p>
+            <div class="banner glass" id="tray-banner" hidden>
+              <div>
+                <div class="title">La bandeja no está en marcha</div>
+                <div class="desc">Los niveles no se actualizan y los ajustes se aplicarán cuando se inicie.</div>
+              </div>
+              <button class="primary" id="start-tray">Iniciar</button>
+            </div>
             <div class="list" id="device-list">
               <div class="glass card skeleton"></div>
               <div class="glass card skeleton"></div>
@@ -62,7 +69,7 @@
             <div class="list">
               <label class="glass card setting">
                 <div><div class="title">Notificaciones</div><div class="desc">Activa o desactiva todos los avisos.</div></div>
-                <input type="checkbox" class="switch" checked />
+                <input type="checkbox" class="switch" id="notify-enabled" />
               </label>
               <div class="glass card setting column">
                 <div class="row">
@@ -73,11 +80,11 @@
               </div>
               <label class="glass card setting">
                 <div><div class="title">Carga completa</div><div class="desc">Avisa cuando un dispositivo llega al 100 %.</div></div>
-                <input type="checkbox" class="switch" />
+                <input type="checkbox" class="switch" id="full-charge" />
               </label>
               <label class="glass card setting">
                 <div><div class="title">Sonido</div><div class="desc">Reproduce el sonido de Windows con cada aviso.</div></div>
-                <input type="checkbox" class="switch" checked />
+                <input type="checkbox" class="switch" id="sound" />
               </label>
             </div>
           </section>
@@ -96,11 +103,11 @@
               </div>
               <label class="glass card setting">
                 <div><div class="title">Animación de carga</div><div class="desc">El anillo «respira» mientras carga.</div></div>
-                <input type="checkbox" class="switch" id="animate" checked />
+                <input type="checkbox" class="switch" id="animate" />
               </label>
               <label class="glass card setting">
                 <div><div class="title">Pictograma</div><div class="desc">Muestra el icono del dispositivo dentro del anillo.</div></div>
-                <input type="checkbox" class="switch" checked />
+                <input type="checkbox" class="switch" id="pictogram" />
               </label>
             </div>
           </section>
@@ -115,7 +122,7 @@
               </div>
               <label class="glass card setting">
                 <div><div class="title">Iniciar con Windows</div><div class="desc">Abre Halo Battery al iniciar sesión.</div></div>
-                <input type="checkbox" class="switch" checked />
+                <input type="checkbox" class="switch" id="autostart" />
               </label>
               <div class="glass card">
                 <div class="title">Halo Battery</div>
@@ -129,9 +136,9 @@
 
     <div class="menu glass" id="device-menu" hidden>
       <button data-action="rename"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z" /></svg>Renombrar</button>
-      <button data-action="hide"><svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 22 12a14 14 0 0 1-2.5 3.4M6.6 6.6A14 14 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6" /></svg>Ocultar de la bandeja</button>
+      <button data-action="toggle-tray"><svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 22 12a14 14 0 0 1-2.5 3.4M6.6 6.6A14 14 0 0 0 2 12s3.5 7 10 7a9.6 9.6 0 0 0 5.4-1.6" /></svg><span>Ocultar de la bandeja</span></button>
       <div class="menu-sep"></div>
-      <button data-action="forget" class="danger"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></svg>Olvidar dispositivo</button>
+      <button data-action="reset" class="danger"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>Restablecer ajustes</button>
     </div>
 
     <script src="app.js"></script>

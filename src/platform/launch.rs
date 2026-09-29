@@ -18,3 +18,9 @@ pub fn open_settings() -> std::io::Result<()> {
     let exe = sibling(SETTINGS_EXE).ok_or_else(|| std::io::Error::other("cannot locate the settings window"))?;
     Command::new(exe).spawn().map(drop)
 }
+
+/// Starts the tray (from the settings window, when it is not running).
+pub fn start_tray() -> std::io::Result<()> {
+    let exe = sibling(TRAY_EXE).ok_or_else(|| std::io::Error::other("cannot locate the tray"))?;
+    Command::new(exe).spawn().map(drop)
+}

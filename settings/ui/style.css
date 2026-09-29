@@ -825,3 +825,58 @@ input[type="range"]::-webkit-slider-thumb:hover {
   margin: 6px 8px;
   background: var(--line-strong);
 }
+
+/* ---------------------------------------------------------------- banner, empty state */
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  border-color: rgba(255, 176, 32, 0.35);
+  background: rgba(255, 176, 32, 0.08);
+  animation: card-in 0.4s var(--ease) both;
+}
+
+.banner[hidden] {
+  display: none;
+}
+
+.primary {
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(90deg, #1d6fff, #3d9bff);
+  box-shadow: 0 0 16px rgba(47, 140, 255, 0.4);
+  transition:
+    filter 0.2s,
+    transform 0.2s var(--ease);
+}
+
+.primary:hover {
+  filter: brightness(1.1);
+}
+
+.primary:active {
+  transform: scale(0.97);
+}
+
+.empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+
+.empty .title {
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.device.hidden-in-tray .ring,
+.device.hidden-in-tray .name {
+  opacity: 0.55;
+}

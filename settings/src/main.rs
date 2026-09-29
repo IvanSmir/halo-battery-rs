@@ -1,81 +1,109 @@
-//! Prototype of the settings window with Tauri.
-//! The UI is plain HTML/CSS/JS in ui/; Rust reads the devices in the
-//! background and pushes every change to the window as a "devices" event.
+//! The settings window. The UI is plain HTML/CSS/JS in ui/; this side only
+//! reads and writes the files it shares with the tray:
+//! - config.json, written here on every change and applied by the tray
+//! - devices.json, published by the tray and pushed to the UI as it changes
+//!
+//! The window never talks to the hardware itself.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::sync::Mutex;
+use std::path::PathBuf;
 use std::time::Duration;
 
-use halo_battery::device::{DeviceStatus, Kind};
-use halo_battery::{platform, providers};
+use halo_battery::config::Config;
+use halo_battery::device::DeviceStatus;
+use halo_battery::platform::{autostart, instance, launch};
+use halo_battery::snapshot::Snapshot;
+use halo_battery::storage::FileWatch;
 use serde::Serialize;
 use tauri::{Emitter, Manager};
 
-/// Poll quickly at first, while Windows is still filling its controller list.
-const FAST_POLL: Duration = Duration::from_secs(1);
-const FAST_POLLS: u32 = 8;
-const POLL: Duration = Duration::from_secs(15);
+/// How often devices.json and the tray process are checked.
+const WATCH: Duration = Duration::from_millis(500);
 
-#[derive(Clone, Serialize, PartialEq)]
-struct Device {
-    key: String,
-    name: String,
-    kind: &'static str,
-    level: Option<u8>,
-    charging: bool,
-    online: bool,
+/// Everything the UI shows when it opens.
+#[derive(Serialize)]
+struct Initial {
+    config: Config,
+    devices: Vec<DeviceStatus>,
+    autostart: bool,
+    tray_running: bool,
 }
 
-impl From<DeviceStatus> for Device {
-    fn from(d: DeviceStatus) -> Self {
-        let kind = match d.kind {
-            Kind::Mouse => "mouse",
-            Kind::Keyboard => "keyboard",
-            Kind::Headset => "headset",
-            Kind::Gamepad => "gamepad",
-        };
-        Self { key: d.key, name: d.name, kind, level: d.level, charging: d.charging, online: d.online }
+fn tray_exe() -> Option<PathBuf> {
+    launch::sibling(launch::TRAY_EXE)
+}
+
+fn devices() -> Vec<DeviceStatus> {
+    Snapshot::default_path().map(|p| Snapshot::load_from(&p).devices).unwrap_or_default()
+}
+
+#[tauri::command]
+fn load() -> Initial {
+    Initial {
+        config: Config::load(),
+        devices: devices(),
+        autostart: tray_exe().is_some_and(|exe| autostart::is_enabled(&exe)),
+        tray_running: instance::tray_running(),
     }
 }
 
-/// The last reading; `None` until the first poll is done.
-#[derive(Default)]
-struct Latest(Mutex<Option<Vec<Device>>>);
-
-/// The last reading, for a window that opens (or reloads) after it was sent.
+/// Saves the settings; the tray picks them up from the file. Returns them as
+/// stored (trimmed aliases, clamped values) so the UI can show what counts.
 #[tauri::command]
-fn devices(latest: tauri::State<'_, Latest>) -> Option<Vec<Device>> {
-    latest.0.lock().unwrap().clone()
+fn save_config(config: Config) -> Result<Config, String> {
+    let config = config.sanitized();
+    config.save().map_err(|e| e.to_string())?;
+    Ok(config)
 }
 
-fn spawn_poller(app: tauri::AppHandle) {
+/// Turns starting the tray at logon on or off; returns the resulting state.
+#[tauri::command]
+fn set_autostart(enabled: bool) -> bool {
+    let Some(exe) = tray_exe() else { return false };
+    autostart::set_enabled(&exe, enabled);
+    autostart::is_enabled(&exe)
+}
+
+#[tauri::command]
+fn start_tray() -> Result<(), String> {
+    launch::start_tray().map_err(|e| e.to_string())
+}
+
+/// Pushes "devices" when the tray publishes new readings and "tray" when it
+/// starts or stops.
+fn spawn_watcher(app: tauri::AppHandle) {
     std::thread::spawn(move || {
-        platform::winrt::init();
-        let mut all = providers::all();
-        let mut polls = 0;
+        let mut snapshot = Snapshot::default_path().map(|p| FileWatch::new(p, WATCH));
+        let mut running = instance::tray_running();
         loop {
-            let now: Vec<Device> = all.iter_mut().flat_map(|p| p.poll()).map(Device::from).collect();
-            let latest = app.state::<Latest>();
-            let changed = latest.0.lock().unwrap().as_ref() != Some(&now);
-            if changed {
-                *latest.0.lock().unwrap() = Some(now.clone());
-                let _ = app.emit("devices", now);
+            std::thread::sleep(WATCH);
+            if snapshot.as_mut().is_some_and(|w| w.changed()) {
+                let _ = app.emit("devices", devices());
             }
-            polls += 1;
-            std::thread::sleep(if polls < FAST_POLLS { FAST_POLL } else { POLL });
+            let now = instance::tray_running();
+            if now != running {
+                running = now;
+                let _ = app.emit("tray", running);
+            }
         }
     });
 }
 
 fn main() {
     tauri::Builder::default()
-        .manage(Latest::default())
+        // a second launch (a tray click while open) brings this window forward
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .setup(|app| {
-            spawn_poller(app.handle().clone());
+            spawn_watcher(app.handle().clone());
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![devices])
+        .invoke_handler(tauri::generate_handler![load, save_config, set_autostart, start_tray])
         .run(tauri::generate_context!())
         .expect("failed to start the settings window");
 }
