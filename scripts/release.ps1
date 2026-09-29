@@ -7,7 +7,9 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root
 
-$version = (Get-Content settings/tauri.conf.json -Raw | ConvertFrom-Json).version
+# the version lives in the Cargo.toml files (release-please bumps them); Tauri reads it from there too
+$version = ((cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages |
+    Where-Object name -eq 'halo-settings').version
 $triple = (rustc -vV | Select-String '^host: (.+)$').Matches[0].Groups[1].Value
 Write-Host "Halo Battery $version ($triple)"
 
