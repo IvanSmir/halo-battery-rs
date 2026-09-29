@@ -58,6 +58,29 @@ cargo build --release -p halo-settings     # the settings window (Tauri)
 
 Both binaries land in `target/release/` and must stay side by side.
 
+`pwsh scripts/release.ps1` builds the installer and a portable zip into
+`dist/` (needs Rust and Node.js; the Tauri CLI runs through npx). The
+**Build installer** workflow does the same on GitHub on demand.
+
+## Releases
+
+Versions and the changelog are automated with
+[release-please](https://github.com/googleapis/release-please), driven by
+[Conventional Commits](https://www.conventionalcommits.org):
+
+| Commit | Effect on the next release |
+| --- | --- |
+| `fix: ...` | patch: 0.1.0 -> 0.1.1 |
+| `feat: ...` | minor: 0.1.0 -> 0.2.0 |
+| `feat!: ...` or a `BREAKING CHANGE:` footer | major |
+| `docs:`, `refactor:`, `test:`, `build:`, `ci:`, `chore:` | none, hidden from the changelog |
+
+On every push to `main`, release-please keeps a release pull request up to
+date with the version bump (both `Cargo.toml` files and `Cargo.lock`) and the
+new `CHANGELOG.md` entries. Merging it tags `vX.Y.Z`, publishes the GitHub
+release and attaches the installer and the portable zip. The app version is
+only in the `Cargo.toml` files; Tauri reads it from there.
+
 ## Development
 
 ```
