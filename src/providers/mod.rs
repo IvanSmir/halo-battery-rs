@@ -4,14 +4,17 @@
 
 pub mod bluetooth;
 pub mod gamepad;
+pub mod inventory;
 pub mod last_seen;
 pub mod logitech;
 
+use self::inventory::Scan;
 use crate::device::DeviceStatus;
 
 pub trait Provider {
-    /// Current status of every device this provider can see.
-    fn poll(&mut self) -> Vec<DeviceStatus>;
+    /// Current status of every device this provider can see. `scan` lists the
+    /// HID devices present, shared by all providers of one poll.
+    fn poll(&mut self, scan: &Scan<'_>) -> Vec<DeviceStatus>;
 
     /// Human-readable lines describing the last poll, for `--list`.
     fn diagnostics(&self) -> Vec<String> {

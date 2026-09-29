@@ -16,12 +16,12 @@ pub mod mapping;
 
 use std::collections::HashSet;
 
-use hidapi::{BusType, HidApi};
 use windows::Gaming::Input::RawGameController;
 use windows::System::Power::BatteryStatus;
 
 use self::mapping::{display_name, level_from_capacity};
 use super::Provider;
+use super::inventory::{self, Scan};
 use crate::device::{DeviceStatus, Kind};
 
 pub struct GamepadProvider {
@@ -78,11 +78,10 @@ impl GamepadProvider {
         }))
     }
 
-    fn read_all(&mut self) -> windows::core::Result<Vec<DeviceStatus>> {
-        let bluetooth = bluetooth_hid_ids();
+    fn read_all(&mut self, bluetooth: &HashSet<(u16, u16)>) -> windows::core::Result<Vec<DeviceStatus>> {
         let mut out = Vec::new();
         for (n, c) in RawGameController::RawGameControllers()?.into_iter().enumerate() {
-            match self.read_controller(n, &c, &bluetooth) {
+            match self.read_controller(n, &c, bluetooth) {
                 Ok(st) => out.extend(st),
                 Err(e) => self.diag.push(format!("[WGI] controller {n}: {e}")),
             }
@@ -94,19 +93,10 @@ impl GamepadProvider {
     }
 }
 
-/// Vendor and product ids of the HID devices connected over Bluetooth.
-fn bluetooth_hid_ids() -> HashSet<(u16, u16)> {
-    let Ok(api) = HidApi::new() else { return HashSet::new() };
-    api.device_list()
-        .filter(|d| matches!(d.bus_type(), BusType::Bluetooth))
-        .map(|d| (d.vendor_id(), d.product_id()))
-        .collect()
-}
-
 impl Provider for GamepadProvider {
-    fn poll(&mut self) -> Vec<DeviceStatus> {
+    fn poll(&mut self, scan: &Scan<'_>) -> Vec<DeviceStatus> {
         self.diag.clear();
-        self.read_all().unwrap_or_else(|e| {
+        self.read_all(&inventory::bluetooth_ids(&scan.hid)).unwrap_or_else(|e| {
             self.diag.push(format!("[WGI] unavailable: {e}"));
             Vec::new()
         })

@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 
 use self::mapping::{Grouped, kind_from_appearance, kind_from_class};
 use super::Provider;
+use super::inventory::Scan;
 use super::last_seen::LastSeen;
 use crate::device::{DeviceStatus, Kind};
 use crate::platform::bluetooth;
@@ -65,7 +66,7 @@ impl BluetoothProvider {
 }
 
 impl Provider for BluetoothProvider {
-    fn poll(&mut self) -> Vec<DeviceStatus> {
+    fn poll(&mut self, _scan: &Scan<'_>) -> Vec<DeviceStatus> {
         self.diag.clear();
         let groups = mapping::group(&bluetooth::devices());
         self.diag.push(format!(

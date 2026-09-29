@@ -16,6 +16,7 @@ use windows::Gaming::Input::RawGameController;
 use crate::device::DeviceStatus;
 use crate::platform::winrt;
 use crate::providers;
+use crate::providers::inventory::Scanner;
 
 enum Cmd {
     PollNow,
@@ -36,10 +37,13 @@ impl Poller {
         thread::spawn(move || {
             winrt::init();
             let mut providers = providers::all();
+            // one listing of the HID devices per read, shared by every provider
+            let mut scanner = Scanner::new();
             subscribe_controller_changes(events);
             let mut interval = interval;
             loop {
-                let devices: Vec<DeviceStatus> = providers.iter_mut().flat_map(|p| p.poll()).collect();
+                let scan = scanner.scan();
+                let devices: Vec<DeviceStatus> = providers.iter_mut().flat_map(|p| p.poll(&scan)).collect();
                 if out.send(devices).is_err() {
                     return;
                 }

@@ -18,6 +18,7 @@ use hidapi::HidApi;
 use self::report::{HidInterface, Report};
 use crate::platform::{bluetooth, folders, system, winrt};
 use crate::providers;
+use crate::providers::inventory::Scanner;
 
 /// Where a report goes by default: the Desktop, named after the date and time.
 pub fn default_path() -> PathBuf {
@@ -34,10 +35,12 @@ const MAX_DESCRIPTOR: usize = 4096;
 pub fn provider_lines() -> Vec<String> {
     winrt::init();
     let mut all = providers::all();
+    let mut scanner = Scanner::new();
     std::thread::sleep(WARM_UP);
+    let scan = scanner.scan();
     let mut lines = Vec::new();
     for p in &mut all {
-        let devices = p.poll();
+        let devices = p.poll(&scan);
         lines.extend(p.diagnostics());
         for d in devices {
             let level = d.level.map_or("?".to_string(), |l| format!("{l}%"));
