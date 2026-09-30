@@ -1,8 +1,10 @@
 //! The "start with Windows" entry under HKCU\...\CurrentVersion\Run. It
 //! always starts the tray; the settings window manages it on its behalf.
 
+use std::io;
 use std::path::Path;
 
+use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
 use windows::Win32::System::Registry::{
     HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
 };
@@ -38,21 +40,24 @@ pub fn is_enabled(exe: &Path) -> bool {
     String::from_utf16_lossy(&buf[..len]) == command(exe)
 }
 
-/// Adds (or removes) the Run entry that starts `exe` at logon.
-pub fn set_enabled(exe: &Path, enable: bool) {
+/// Adds (or removes) the Run entry that starts `exe` at logon. Removing an
+/// entry that is not there counts as done.
+pub fn set_enabled(exe: &Path, enable: bool) -> io::Result<()> {
     unsafe {
         if !enable {
-            let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN_KEY, RUN_VALUE);
-            return;
+            let rc = RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN_KEY, RUN_VALUE);
+            return if rc == ERROR_FILE_NOT_FOUND { Ok(()) } else { rc.ok().map_err(io::Error::from) };
         }
         let wide: Vec<u16> = command(exe).encode_utf16().chain([0]).collect();
-        let _ = RegSetKeyValueW(
+        RegSetKeyValueW(
             HKEY_CURRENT_USER,
             RUN_KEY,
             RUN_VALUE,
             REG_SZ.0,
             Some(wide.as_ptr().cast()),
             (wide.len() * 2) as u32,
-        );
+        )
+        .ok()
+        .map_err(io::Error::from)
     }
 }

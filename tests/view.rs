@@ -1,7 +1,7 @@
 mod common;
 
 use common::{charging, device, offline};
-use halo_battery::app::view::{Look, PLACEHOLDER_KEY, icon_state, icons, is_animated, tooltip};
+use halo_battery::app::view::{Look, PLACEHOLDER_KEY, icon_guid, icon_state, icons, is_animated, tooltip};
 use halo_battery::config::{Config, DeviceSettings, RingColor};
 use halo_battery::icon::palette::ring_color;
 
@@ -79,6 +79,48 @@ mod icon_states {
     }
 }
 
+mod device_colour {
+    use super::*;
+
+    fn tinted(color: Option<RingColor>) -> Config {
+        with_device(
+            "a",
+            DeviceSettings { ring_color: color, visible: true, alias: "x".into(), ..DeviceSettings::default() },
+        )
+    }
+
+    fn ring_of(cfg: &Config, look: Look) -> Option<[u8; 3]> {
+        icons(&[device("a", Some(84))], cfg, look)[0].state.ring
+    }
+
+    #[test]
+    fn the_device_colour_overrides_the_global_one() {
+        let global = Look { ring: ring_color(RingColor::Blue), ..LOOK };
+        assert_eq!(ring_of(&tinted(Some(RingColor::Rose)), global), ring_color(RingColor::Rose));
+    }
+
+    #[test]
+    fn no_device_colour_follows_the_global_one() {
+        let global = Look { ring: ring_color(RingColor::Blue), ..LOOK };
+        assert_eq!(ring_of(&tinted(None), global), ring_color(RingColor::Blue));
+        assert_eq!(ring_of(&Config::default(), global), ring_color(RingColor::Blue));
+    }
+
+    #[test]
+    fn auto_on_a_device_uses_the_taskbar_colour_even_when_the_global_is_blue() {
+        let global = Look { ring: ring_color(RingColor::Blue), ..LOOK };
+        assert_eq!(ring_of(&tinted(Some(RingColor::Auto)), global), None);
+    }
+
+    #[test]
+    fn only_that_device_changes() {
+        let cfg = tinted(Some(RingColor::Mint));
+        let views = icons(&[device("a", Some(1)), device("b", Some(2))], &cfg, LOOK);
+        assert_eq!(views[0].state.ring, ring_color(RingColor::Mint));
+        assert_eq!(views[1].state.ring, LOOK.ring);
+    }
+}
+
 mod icon_list {
     use super::*;
 
@@ -115,5 +157,34 @@ mod icon_list {
     fn a_placeholder_when_every_device_is_hidden() {
         let cfg = with_device("a", DeviceSettings { visible: false, ..DeviceSettings::default() });
         assert_eq!(icons(&[device("a", Some(1))], &cfg, LOOK)[0].key, PLACEHOLDER_KEY);
+    }
+}
+
+mod tray_identity {
+    use super::*;
+
+    #[test]
+    fn the_guid_is_deterministic() {
+        assert_eq!(icon_guid("logitech:D988095B"), icon_guid("logitech:D988095B"));
+    }
+
+    #[test]
+    fn different_devices_get_different_guids() {
+        assert_ne!(icon_guid("logitech:D988095B"), icon_guid("logitech:D988095C"));
+        assert_ne!(icon_guid("a"), icon_guid("b"));
+    }
+
+    #[test]
+    fn the_placeholder_has_a_guid_of_its_own() {
+        assert_ne!(icon_guid(PLACEHOLDER_KEY), icon_guid("a"));
+        assert_ne!(icon_guid(PLACEHOLDER_KEY), 0);
+    }
+
+    /// Windows pins an icon by its GUID: if the algorithm ever changes, every
+    /// user's pinned icons silently unpin, so the exact values are fixed here.
+    #[test]
+    fn the_guid_values_never_change() {
+        assert_eq!(icon_guid(""), 0x6c62272e07bb014262b821756295c58d);
+        assert_eq!(icon_guid("logitech:D988095B"), 0x8cf31091f5492563cf28ca7df45c6975);
     }
 }

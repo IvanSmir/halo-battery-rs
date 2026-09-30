@@ -11,10 +11,12 @@
 //! - [`update`]: looking for a newer release
 //! - [`app`]: the tray application that wires it all together
 //! - [`cli`]: the `--list` and `--diagnose` commands
+//! - [`command_error`]: the error the settings window's commands send to its page
 //! - [`diagnose`]: the diagnostics report used to support new devices
 
 pub mod app;
 pub mod cli;
+pub mod command_error;
 pub mod config;
 pub mod device;
 pub mod diagnose;

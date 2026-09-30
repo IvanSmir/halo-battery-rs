@@ -87,6 +87,10 @@ pub struct DeviceSettings {
     pub visible: bool,
     /// Notifications for this device.
     pub notify: bool,
+    /// Arc colour of this device; `None` follows [`Appearance::ring_color`],
+    /// and `Some(Auto)` is an explicit choice of the taskbar colour.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ring_color: Option<RingColor>,
 }
 
 impl Default for Config {
@@ -116,7 +120,7 @@ impl Default for Appearance {
 
 impl Default for DeviceSettings {
     fn default() -> Self {
-        Self { alias: String::new(), visible: true, notify: true }
+        Self { alias: String::new(), visible: true, notify: true, ring_color: None }
     }
 }
 
@@ -142,6 +146,18 @@ impl Config {
     /// for missing fields, out-of-range values clamped.
     pub fn load_from(path: &Path) -> Self {
         storage::read_json::<Self>(path).unwrap_or_default().sanitized()
+    }
+
+    /// Like [`Config::load_from`], but says when an existing file cannot be
+    /// used. A missing file is not a problem: it just means nothing is set yet.
+    pub fn try_load_from(path: &Path) -> io::Result<Self> {
+        let text = match std::fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Self::default()),
+            Err(e) => return Err(e),
+        };
+        let config: Self = serde_json::from_str(&text).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        Ok(config.sanitized())
     }
 
     /// Saves to the default path.
